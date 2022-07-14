@@ -7,57 +7,397 @@
 		#canvas {
 			border: 1px solid black;
 		}
+
+		th, td {
+			padding: 3px;
+			vertical-align: top;
+		}
+
+		input[type="text"] {
+			width: 50px;
+		}
 		
 	</style>
 </head>
 <body>
-<h1>Dive Drawing Demo<h1>
-<canvas id="canvas" width="600" height="400"></canvas>
+<h3>Dive Profile Drawing Demo</h3>
+<canvas id="canvas" width="640" height="480"></canvas>
 <br>
-<input type="button" id="slocum" value="Slocum Profile"></input>
-<input type="button" id="float" value="Float Profile"></input>
+<table width="640">
+	<tr>
+		<th><b>Common</b></th>
+		<th><b>Glider</b></th>
+		<th><b>Float</b></th>
+	</tr>
+	<tr>
+		<td>
+			dive time: <input type="text" value="360" id="minutes" placeholder="minutes"></input>
+		</td>
+		<td>
+			yo count: <input type="text" value="2" id="yo"></input><br>
+			min depth: <input type="text" value="250" id="mindepth"></input><br>
+			max depth: <input type="text" value="1000" id="maxdepth"></input><br>
+			<input type="button" value="Draw Glider Profile" id="glider"></input>
+		</td>
+		<td>
+			park depth: <input type="text" value="1000" id="parkdepth"></input><br>
+			deep depth: <input type="text" value="1250" id="deepdepth"></input><br>
+			<input type="button" value="Draw Float Profile" id="float"></input>
+		</td>
+	</tr>
+</table>
+<div id="debug"></div>
 
 </body>
 <script>
-	function slocumProfile() {
-		let canvas = document.getElementById("canvas");
-		
-		let context = canvas.getContext("2d");
-		context.clearRect(0, 0, canvas.width, canvas.height);
-		context.strokeStyle = "black";
-	
+	// just grab these once and reuse
+	let canvas = document.getElementById("canvas");
+	let context = canvas.getContext("2d");
+
+	// use the same font and orientation
+	context.font = "10px serif";
+
+	let drawcontrolpoints = false;
+
+	// glider vs float enum
+	const VehicleType = Object.freeze(
+		{
+			GLIDER: 0,
+			FLOAT: 1
+		}
+	);
+
+	// margin is the area where no drawing should occur
+	const MARGIN = 8;
+
+	// gutter is where the axes are drawn and includes a margin
+	const GUTTER = 40;
+
+	const WIDTH = canvas.width - (MARGIN + GUTTER);
+	const HEIGHT = canvas.height - (MARGIN + GUTTER);
+
+	function log(...s) {
+		document.getElementById("debug").innerText += s.join(" ") + "\n";
+	}
+
+	function getMinutes() {
+		return parseInt(document.getElementById("minutes").value);
+	}
+
+	// the plot depth is a bit different that the absolute max depth because
+	// the plot depth adds a bit of padding so the bottom of the plot doesn't
+	// run off and bump into the bottom of the plot area
+	function getPlotDepth(vehicletype) {
+		let depth = -1;
+
+		try {
+			if(vehicletype == VehicleType.GLIDER) {
+				depth = parseInt(document.getElementById("maxdepth").value);
+
+			} else if(vehicletype == VehicleType.FLOAT) {
+				let deep = document.getElementById("deepdepth").value;
+				if(deep.trim().length > 0) {
+					deep = parseInt(deep);
+				} else {
+					deep = 0;
+				}
+
+				let park = parseInt(document.getElementById("parkdepth").value);
+				if(deep > park) {
+					depth = deep;
+				} else {
+					depth = park;
+				}
+			}
+		} catch(e) {
+			// pass
+		}
+
+		if(depth < 0) {
+			return depth;
+		}
+
+		// add a little padding so the plot doesn't hit the bottom
+		return depth * 1.08;
+	}
+
+	function drawTimeAxis() {
+
+		// translate to bottom of plot
+		context.translate(GUTTER, canvas.height - MARGIN);
+
+		// draw the axis line
 		context.beginPath();
-		context.moveTo(10, 10);
-		
-		context.quadraticCurveTo(50, 390, 100, 390);
-		context.bezierCurveTo(150, 390, 150, 50, 200, 50);
-		context.bezierCurveTo(250, 50, 250, 390, 300, 390);
-		context.bezierCurveTo(350, 390, 350, 50, 400, 50);
-		context.bezierCurveTo(450, 50, 450, 390, 500, 390);
-		context.quadraticCurveTo(550, 390, 590, 10);
-	
+		context.moveTo(0, 0);
+		context.lineTo(WIDTH, 0);
 		context.stroke();
+
+		// get desired minutes and compute the segment width as a power of ten using the log
+		let mins = getMinutes();
+		let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(mins)) - 1));
+
+		// the step width and number of steps are computed from the mins and segment above
+		let step = WIDTH / (mins / segment);
+		let steps = Math.ceil(WIDTH / step); // instinct says floor, but this is ceil because of 0-index?
+
+		// a skip for the text as there should never be more than one hundred total steps
+		let skip = Math.ceil(steps / 25);
+		
+		context.fillStyle = "black";
+		context.textAlign = "center";
+
+		// i is a basic counter for the steps, px is pixels, and x is segment we're on for labels
+		for(let i = 0, px = 0, x = 0; i < steps; i += 1, px += step, x += segment) {
+			context.beginPath();
+			context.moveTo(px, 0);
+			context.lineTo(px, -8);
+			context.stroke();
+
+			if(i % skip == 0) {
+				context.fillText(x.toString(), px, -10);
+			}
+		}
+
+		context.translate(-GUTTER, -(canvas.height - MARGIN));
+	}
+
+	// see depth axis comments as technique is the same
+	function drawDepthAxis(vehicletype) {
+		context.translate(MARGIN, MARGIN);
+
+		context.beginPath();
+		context.moveTo(0, 0);
+		context.lineTo(0, HEIGHT);
+		context.stroke();
+
+		let plotdepth = getPlotDepth(vehicletype);
+		let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(plotdepth)) - 1));
+
+		let step = HEIGHT / (plotdepth / segment);
+		let steps = Math.ceil(HEIGHT / step);
+		let skip = Math.ceil(steps / 25);
+
+		context.fillStyle = "black";
+		context.textAlign = "start";
+
+		for(let i = 0, py = 0, y = 0; i < steps; i += 1, py += step, y += segment) {
+			context.beginPath();
+			context.moveTo(0, py);
+			context.lineTo(6, py);
+			context.stroke();
+
+			if(i % skip == 0) {
+				context.fillText(y.toString(), 8, py + 3.5);
+			}
+		}
+
+		context.translate(-MARGIN, -MARGIN);
+	}
+
+	function drawAxes(vehicletype) {
+		drawTimeAxis();
+		drawDepthAxis(vehicletype);
+	}
+
+	// draw the control points to make sure they're correct
+	function drawControlPoints(points) {
+		if(!drawcontrolpoints) {
+			return;
+		}
+		
+		context.fillStyle = "red";
+		points.forEach(
+			point => {
+				context.beginPath();
+				context.arc(...point, 3, 0, Math.PI * 2);
+				context.fill();
+			}
+		);
 	}
 	
-	function floatProfile() {
-		let canvas = document.getElementById("canvas");
-		
-		let context = canvas.getContext("2d");
+	function drawGliderProfile() {
 		context.clearRect(0, 0, canvas.width, canvas.height);
 		context.strokeStyle = "black";
-	
-		context.beginPath();
-		context.moveTo(10, 10);
+		drawAxes(VehicleType.GLIDER);
+
+		context.translate(GUTTER, MARGIN);
+		// context.strokeRect(0, 0, WIDTH, HEIGHT);
+
+		// should always have a max depth
+		let maxdepth = parseInt(document.getElementById("maxdepth").value);
 		
-		context.quadraticCurveTo(50, 275, 100, 275);
-		context.lineTo(400, 275);
-		context.bezierCurveTo(450, 275, 450, 390, 500, 390);
-		context.quadraticCurveTo(550, 390, 590, 10);
-	
+		// the min depth is optional or defaults to 10
+		let mindepth = -1;
+		let depth = document.getElementById("mindepth").value;
+		if(depth.trim().length > 0) {
+			mindepth = parseInt(depth);
+		}
+
+		let yocount = parseInt(document.getElementById("yo").value);
+
+		// if one yo then there is no min depth
+		if(yocount <= 1) {
+			yocount = 1;
+			mindepth = 0;
+		
+		// otherwise just set the min depth to ten for yos
+		} else if(mindepth < 0) {
+			mindepth = 10;
+		}
+
+		let mins = getMinutes();
+		let plotdepth = getPlotDepth(VehicleType.GLIDER);
+
+		// normalize the pixels per meter and minute
+		let ppmeter = HEIGHT / plotdepth;
+		let ppminute = WIDTH / mins;
+
+		
+		let controlpoints = [];
+
+		context.beginPath();
+		context.moveTo(0, 0);
+
+		// move a half-yo at a time
+		let xdelta = WIDTH / (yocount * 2);
+		let ymax = maxdepth * ppmeter;
+		let ymin = mindepth * ppmeter;
+
+		// keep track of the previous position for control points
+		let prevx = -1;
+		let prevy = -1;
+
+		for(let x = xdelta, halfyo = 1; halfyo < ((yocount * 2) + 1); x += xdelta, halfyo += 1) {
+			let y = 0;
+
+			// first half yo is max depth or apogee
+			if(halfyo % 2 == 1) {
+				y = ymax;
+
+			// second half is min depth or perigee
+			} else {
+				// y is initialized to zero so reset non-end point
+				if(halfyo != (yocount * 2)) {
+					y = ymin;
+				}
+			}
+
+			// first segment
+			if(halfyo == 1) {
+				let cp = [x - 50, y];
+				controlpoints.push(cp);
+				context.quadraticCurveTo(...cp, x, y);
+			
+			// last segment
+			} else if(halfyo == (yocount * 2)) {
+				let cp = [prevx + 50, prevy];
+				controlpoints.push(cp);
+				context.quadraticCurveTo(...cp, x, y);
+				
+			// inner segment
+			} else {
+				let cp1 = [prevx + 50, prevy];
+				let cp2 = [x - 50, y];
+				controlpoints.push(cp1, cp2);
+				context.bezierCurveTo(...cp1, ...cp2, x, y);
+			}
+
+			prevx = x;
+			prevy = y;
+		}
+
 		context.stroke();
+
+		drawControlPoints(controlpoints);
+
+		context.translate(-GUTTER, -MARGIN);
 	}
 	
-	document.getElementById("slocum").addEventListener("click", slocumProfile);
-	document.getElementById("float").addEventListener("click", floatProfile);
+	function drawFloatProfile() {
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.strokeStyle = "black";
+		drawAxes(VehicleType.FLOAT);
+
+		context.translate(GUTTER, MARGIN);
+		// context.strokeRect(0, 0, WIDTH, HEIGHT);
+
+		let parkdepth = parseInt(document.getElementById("parkdepth").value);
+		let deepdepth = -1;
+		let deepdive = false;
+
+		let deep = document.getElementById("deepdepth").value;
+		if(deep.trim().length > 0) {
+			deepdepth = parseInt(deep);
+
+			if(deepdepth < parkdepth) {
+				deepdepth = -1;
+			} else {
+				deepdive = true;
+			}
+		}
+
+		let mins = getMinutes();
+		let plotdepth = getPlotDepth(VehicleType.FLOAT);
+
+		// normalize the pixels per meter and minute
+		let ppmeter = HEIGHT / plotdepth;
+		let ppminute = WIDTH / mins;
+
+		// keep track of the control points for plotting
+		let controlpoints = [];
+
+		// divide portions into sixths for now
+		let parkstartx = WIDTH / 6.0;
+		let parkstarty = parkdepth * ppmeter;
+		
+		// add an extra park length if not going deep
+		let parkendx = parkstartx + (((deepdive ? 3.0 : 4.0) * WIDTH)  / 6.0);
+		let parkendy = parkstarty;
+
+		context.beginPath();
+		context.moveTo(0, 0);
+		
+		// dive
+		let cp = [parkstartx - 50, parkstarty];
+		controlpoints.push(cp);
+		context.quadraticCurveTo(...cp, parkstartx, parkstarty);
+
+		// park
+		context.lineTo(parkendx, parkendy);
+
+		// deep (optional)
+		if(deepdive) {
+			let deepx = parkendx + (WIDTH / 6.0);
+			let deepy = deepdepth * ppmeter;
+
+			let cp1 = [parkendx + 50, parkendy];
+			let cp2 = [deepx - 50, deepy];
+			controlpoints.push(cp1, cp2);
+
+			// bezier takes two control points
+			context.bezierCurveTo(...cp1, ...cp2, deepx, deepy);
+
+			// reset the park values so the end doesn't need to know if we went deep
+			parkx = deepx;
+			parky = deepy;
+		}
+
+		// profile
+		let profilex = WIDTH;
+		let profiley = 0;
+
+		cp = [parkx + 50, parky];
+		controlpoints.push(cp);
+		context.quadraticCurveTo(...cp, profilex, profiley);
+
+		context.stroke();
+
+		drawControlPoints(controlpoints);
+
+		context.translate(-GUTTER, -MARGIN);
+	}
+	
+	document.getElementById("glider").addEventListener("click", drawGliderProfile);
+	document.getElementById("float").addEventListener("click", drawFloatProfile);
 </script>
 </html>
