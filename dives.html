@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Dive Drawing Demo</title>
+	<style>
+		#canvas {
+			border: 1px solid black;
+		}
+		
+	</style>
+</head>
+<body>
+<h1>Dive Drawing Demo<h1>
+<canvas id="canvas" width="600" height="400"></canvas>
+<br>
+<input type="button" id="slocum" value="Slocum Profile"></input>
+<input type="button" id="float" value="Float Profile"></input>
+
+</body>
+<script>
+	function slocumProfile() {
+		let canvas = document.getElementById("canvas");
+		
+		let context = canvas.getContext("2d");
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.strokeStyle = "black";
+	
+		context.beginPath();
+		context.moveTo(10, 10);
+		
+		context.quadraticCurveTo(50, 390, 100, 390);
+		context.bezierCurveTo(150, 390, 150, 50, 200, 50);
+		context.bezierCurveTo(250, 50, 250, 390, 300, 390);
+		context.bezierCurveTo(350, 390, 350, 50, 400, 50);
+		context.bezierCurveTo(450, 50, 450, 390, 500, 390);
+		context.quadraticCurveTo(550, 390, 590, 10);
+	
+		context.stroke();
+	}
+	
+	function floatProfile() {
+		let canvas = document.getElementById("canvas");
+		
+		let context = canvas.getContext("2d");
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.strokeStyle = "black";
+	
+		context.beginPath();
+		context.moveTo(10, 10);
+		
+		context.quadraticCurveTo(50, 275, 100, 275);
+		context.lineTo(400, 275);
+		context.bezierCurveTo(450, 275, 450, 390, 500, 390);
+		context.quadraticCurveTo(550, 390, 590, 10);
+	
+		context.stroke();
+	}
+	
+	document.getElementById("slocum").addEventListener("click", slocumProfile);
+	document.getElementById("float").addEventListener("click", floatProfile);
+</script>
+</html>
