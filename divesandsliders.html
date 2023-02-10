@@ -12,7 +12,7 @@
 		}
 
 		/* selects every direct child div */
-		container > div {}
+		container > div { }
 
 		/* selects every 5th element as 1, 6, 11, etc */
 		container > div:nth-child(5n + 1) {}
@@ -20,6 +20,11 @@
 		/* selects the sixth element and after */
 		container > div:nth-child(n + 6) {
 			height: 480px;
+		}
+
+		/* selects the first five elements to give space between rows */
+		container > div:nth-child(-n + 5) {
+			margin-bottom: 20px;
 		}
 
 		/* the canvas needs to fill the entire grid cell */
@@ -30,12 +35,23 @@
 
 		/* selects the div under the seventh element and after as the slider needs its own div and it needs to be sized */
 		container > div:nth-child(n + 7) > div {
-			height: 480px;
+			/* note we make the slider a bit shorter than the plot in order to account for the x-axis gutter */
+			height: 450px;
+		}
+
+		/* center the slider headers */
+		container > div:nth-child(n + 2):nth-child(-n + 5) {
+			justify-self: center;
+			text-align: center;
 		}
 
 		/* the slider containers need to be justified */
 		container > div:nth-child(n + 7) {
 			justify-self: center;
+		}
+
+		container .sliderselect {
+			max-width: 40px;
 		}
 
 	</style>
@@ -47,19 +63,40 @@
 
 <container>
 	<div>
-		A
+		<span>Mission Type: </span>
+		<select id="typeselect">
+			<option selected>Yo (Specified Number)</option>
+		</select>
 	</div>
 	<div>
-		B
+		Depth
+		<div>
+		<input type="checkbox" title="Altimeter Toggle" checked></input>
+		</div>
+		<select id="yoselect" class="sliderselect">
+			<option value="count" disabled>Choose Yo Count ...</option>
+			<option value="1">1</option>
+			<option value="2" selected>2</option>
+			<option value="3">3</option>
+			<option value="4">4</option>
+			<option value="5">5</option>
+			<option value="6">6</option>
+		</select>
 	</div>
 	<div>
-		C
+		Pump
+		<br>
+		<input type="checkbox" title="Pump Toggle" style="visibility: hidden;"></input>
 	</div>
 	<div>
-		D
+		CTD
+		<br>
+		<input type="checkbox" id="ctdcheck" title="CTD Toggle" checked></input>
 	</div>
 	<div>
-		E
+		Optics
+		<br>
+		<input type="checkbox" id="opticscheck" title="Optics Toggle" checked></input>
 	</div>
 	<div id="canvas-container">
 		<canvas id="canvas"></canvas>
@@ -78,18 +115,6 @@
 	</div>
 </container>
 
-<br>
-<span>Yo Count: </span>
-<select id="yoselect">
-	<option value="1">1</option>
-	<option value="2" selected>2</option>
-	<option value="3">3</option>
-	<option value="4">4</option>
-	<option value="5">5</option>
-	<option value="6">6</option>
-	<option value="7">7</option>
-	<option value="8">8</option>
-</select>
 <div id="debug"></div>
 
 </body>
@@ -134,10 +159,16 @@ let DiveCanvas = (
 		let mindepth = 250.0;
 		let maxdepth = 1000.0;
 		let pumpdepth = 500.0;
+
+		// ctd optional
+		let ctdvisible = true;
 		let minctd = 0.0;
-		let maxctd = 800.0;
-		let minoptics = 250.0;
-		let maxoptics = 1000.0;
+		let maxctd = maxdepth;
+
+		// optics optional
+		let opticsvisible = true;
+		let minoptics = 0.0;
+		let maxoptics = maxdepth;
 
 		function log(...s) {
 			document.getElementById("debug").innerText += s.join(" ") + "\n";
@@ -161,7 +192,7 @@ let DiveCanvas = (
 		function getPlotDepth(vehicletype) {
 
 			// we want to keep the depth consistent so make it always 1500
-			return 1500.0 * 1.08;
+			return 1500.0 + 1.05;
 
 			/*
 			let depth = -1;
@@ -268,7 +299,8 @@ let DiveCanvas = (
 		}
 
 		function drawAxes(vehicletype) {
-			drawTimeAxis();
+			// drop the time axis until we can figure out how to handle
+			// drawTimeAxis();
 			drawDepthAxis(vehicletype);
 		}
 
@@ -374,31 +406,35 @@ let DiveCanvas = (
 			pumppath.lineTo(WIDTH, pumpdepth * ppmeter);
 			context.stroke(pumppath);
 
-			// clip the ctd using the same path after translation
-			context.save();
+			if(ctdvisible && minctd != null && maxctd != null) {
+				// clip the ctd using the same path after translation
+				context.save();
 
-			let ctdclip = new Path2D();
-			ctdclip.rect(0, minctd * ppmeter, WIDTH, (maxctd - minctd) * ppmeter);
-			context.clip(ctdclip);
+				let ctdclip = new Path2D();
+				ctdclip.rect(0, minctd * ppmeter, WIDTH, (maxctd - minctd) * ppmeter);
+				context.clip(ctdclip);
 
-			context.strokeStyle = "red";
-			context.translate(0, 10);
-			context.setLineDash([5, 5]);
-			context.stroke(path);
-			context.restore();
+				context.strokeStyle = "red";
+				context.translate(0, 10);
+				context.setLineDash([5, 5]);
+				context.stroke(path);
+				context.restore();
+			}
 
-			// similarly clip the optics
-			context.save();
+			if(opticsvisible && minoptics != null && maxoptics != null) {
+				// similarly clip the optics
+				context.save();
 
-			let opticsclip = new Path2D();
-			opticsclip.rect(0, minoptics * ppmeter, WIDTH, (maxoptics - minoptics) * ppmeter);
-			context.clip(opticsclip);
+				let opticsclip = new Path2D();
+				opticsclip.rect(0, minoptics * ppmeter, WIDTH, (maxoptics - minoptics) * ppmeter);
+				context.clip(opticsclip);
 
-			context.strokeStyle = "green";
-			context.translate(0, -10);
-			context.setLineDash([5, 5]);
-			context.stroke(path);
-			context.restore();
+				context.strokeStyle = "green";
+				context.translate(0, -10);
+				context.setLineDash([5, 5]);
+				context.stroke(path);
+				context.restore();
+			}
 
 			context.translate(-GUTTER, -MARGIN);
 		}
@@ -487,8 +523,10 @@ let DiveCanvas = (
 				mindepth = minDepth;
 				maxdepth = maxDepth;
 				pumpdepth = pumpDepth;
+
 				minctd = minCTD;
 				maxctd = maxCTD;
+
 				minoptics = minOptics;
 				maxoptics = maxOptics;
 				
@@ -497,18 +535,18 @@ let DiveCanvas = (
 			setYoCount: function(yoCount) {
 				yocount = yoCount;
 				drawGliderProfile();
+			},
+			setCTDVisible(visible) {
+				ctdvisible = visible;
+				drawGliderProfile();
+			},
+			setOpticsVisible(visible) {
+				opticsvisible = visible;
+				drawGliderProfile();
 			}
 		}
 	}
 )();
-
-document.getElementById("yoselect").addEventListener(
-	"change",
-	function(e) {
-		// always in range
-		DiveCanvas.setYoCount(e.srcElement.selectedIndex + 1);
-	}
-);
 
 let Sliders = (
 	function() {
@@ -694,6 +732,7 @@ let Sliders = (
 			}
 		);
 
+		// draw plot with current slider config
 		fireRedraw();
 
 		// this will be useful when a sensor is turned off
@@ -714,8 +753,49 @@ let Sliders = (
 
 		// Read the position as a percentage
 		// alert(depth.noUiSlider.getPositions());
+
+		return {
+			setCTDEnabled: function(enabled) {
+				if(enabled) {
+					ctdSlider.enable();
+				} else {
+					ctdSlider.disable();
+				}
+			},
+			setOpticsEnabled: function(enabled) {
+				if(enabled) {
+					opticsSlider.enable();
+				} else {
+					opticsSlider.disable();
+				}
+			}
+		}
 	}
 )();
+
+document.getElementById("yoselect").addEventListener(
+	"change",
+	function(e) {
+		// always in range
+		DiveCanvas.setYoCount(e.target.selectedIndex);
+	}
+);
+
+document.getElementById("ctdcheck").addEventListener(
+	"change",
+	function(e) {
+		Sliders.setCTDEnabled(e.target.checked);
+		DiveCanvas.setCTDVisible(e.target.checked);
+	}
+);
+
+document.getElementById("opticscheck").addEventListener(
+	"change",
+	function(e) {
+		Sliders.setOpticsEnabled(e.target.checked);
+		DiveCanvas.setOpticsVisible(e.target.checked);
+	}
+);
 
 </script>
 </html>
