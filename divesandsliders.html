@@ -4,19 +4,40 @@
 	<meta charset="utf-8">
 	<title>Dive Drawing Demo</title>
 	<style>
-		#canvas {
-			border: 0px solid black;
+		/* grid container */
+		container {
+			width:100%;
+			display:grid;
+			grid-template-columns: 10fr 1fr 1fr 1fr 1fr;
 		}
 
-		th, td {
-			padding: 3px;
-			vertical-align: top;
+		/* selects every direct child div */
+		container > div {}
+
+		/* selects every 5th element as 1, 6, 11, etc */
+		container > div:nth-child(5n + 1) {}
+
+		/* selects the sixth element and after */
+		container > div:nth-child(n + 6) {
+			height: 480px;
 		}
 
-		input[type="text"] {
-			width: 50px;
+		/* the canvas needs to fill the entire grid cell */
+		container > div:nth-child(6) > canvas {
+			width: 100%;
+			height: 100%;
 		}
-		
+
+		/* selects the div under the seventh element and after as the slider needs its own div and it needs to be sized */
+		container > div:nth-child(n + 7) > div {
+			height: 480px;
+		}
+
+		/* the slider containers need to be justified */
+		container > div:nth-child(n + 7) {
+			justify-self: center;
+		}
+
 	</style>
 	<link href="noslider/nouislider.css" rel="stylesheet">
 	<script src="noslider/nouislider.js"></script>
@@ -24,40 +45,39 @@
 <body>
 <h3>Dive Profile Drawing Demo</h3>
 
-<div style="width:100%;height:600px;display:flex;flex-wrap:wrap">
-	<!--
-	<div style="flex:60%;height:100px">
+<container>
+	<div>
 		A
 	</div>
-	<div style="flex:10%;height:100px">
+	<div>
 		B
 	</div>
-	<div style="flex:10%;height:100px">
+	<div>
 		C
 	</div>
-	<div style="flex:10%;height:100px">
+	<div>
 		D
 	</div>
-	<div style="flex:10%;height:100px">
+	<div>
 		E
 	</div>
-	-->
-	<div style="flex:60%">
-		<canvas id="canvas" style="width:100%;height:100%"></canvas>
+	<div id="canvas-container">
+		<canvas id="canvas"></canvas>
 	</div>
-	<div id="depth" style="flex:10%">
-		<div id="depth-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	<div>
+		<div id="depth-container"></div>
 	</div>
-	<div id="pump" style="flex:10%">
-		<div id="pump-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	<div>
+		<div id="pump-container"></div>
 	</div>
-	<div id="ctd" style="flex:10%">
-		<div id="ctd-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	<div>
+		<div id="ctd-container"></div>
 	</div>
-	<div id="optics" style="flex:10%">
-		<div id="optics-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	<div>
+		<div id="optics-container"></div>
 	</div>
-</div>
+</container>
+
 <br>
 <span>Yo Count: </span>
 <select id="yoselect">
@@ -493,16 +513,16 @@ document.getElementById("yoselect").addEventListener(
 let Sliders = (
 	function() {
 
-		let depthContainer = document.getElementById('depth-container');
-		let pumpContainer = document.getElementById('pump-container');
-		let ctdContainer = document.getElementById('ctd-container');
-		let opticsContainer = document.getElementById('optics-container');
+		let depthContainer = document.getElementById("depth-container");
+		let pumpContainer = document.getElementById("pump-container");
+		let ctdContainer = document.getElementById("ctd-container");
+		let opticsContainer = document.getElementById("optics-container");
 
 		// options for two handles
 		let depthOptions = {
 			range: {
-				'min': 0,
-				'max': 1500
+				"min": 0,
+				"max": 1500
 			},
 			start: [200, 1450],
 			connect: [false, true, false],
@@ -521,24 +541,24 @@ let Sliders = (
 
 			// allows us to do depth-down
 			// note not needed since default creates max at bottom
-			// direction: 'rtl',
+			// direction: "rtl",
 
 			// allows the range between handles to be dragged
-			// note this disables the default 'tap' behavior that animates the handles to the tapped position
-			// also note 'snap' might be a better option than 'tap' when animations break down
-			behaviour: 'drag',
+			// note this disables the default "tap" behavior that animates the handles to the tapped position
+			// also note "snap' might be a better option than 'tap" when animations break down
+			behaviour: "drag",
 
 			// might need to use this if the set keeps wigging out
 			// animate: false
 
 			// note: Set dimensions! Vertical sliders don't assume a default height, so a height needs to be set. Any unit can be used, including px, em or rem.
-			orientation: 'vertical'
+			orientation: "vertical"
 
 			// pips are nice but might take up too much room
 			// note there are a bunch of modes available so this might not be the best one
 			/*
 			pips: {
-				mode: 'steps',
+				mode: "steps",
 				density: 20,
 				filter: function(value, type) {
 					if(value % 100 == 0) {
@@ -563,7 +583,7 @@ let Sliders = (
 				start: [ 500 ],
 				connect: [false, false],
 				tooltips: true,
-				behaviour: 'snap'
+				behaviour: "snap"
 			}
 		);
 
@@ -599,7 +619,7 @@ let Sliders = (
 		}
 
 		depthSlider.on(
-			"slide", // note 'update' given even more events, but probably not needed
+			"slide", // note "update" given even more events, but probably not needed
 			function(values, handle) {
 
 				if(handle == 1) {
