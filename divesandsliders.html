@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Dive Drawing Demo</title>
+	<style>
+		#canvas {
+			border: 0px solid black;
+		}
+
+		th, td {
+			padding: 3px;
+			vertical-align: top;
+		}
+
+		input[type="text"] {
+			width: 50px;
+		}
+		
+	</style>
+	<link href="noslider/nouislider.css" rel="stylesheet">
+	<script src="noslider/nouislider.js"></script>
+</head>
+<body>
+<h3>Dive Profile Drawing Demo</h3>
+
+<div style="width:100%;height:600px;display:flex;flex-wrap:wrap">
+	<!--
+	<div style="flex:60%;height:100px">
+		A
+	</div>
+	<div style="flex:10%;height:100px">
+		B
+	</div>
+	<div style="flex:10%;height:100px">
+		C
+	</div>
+	<div style="flex:10%;height:100px">
+		D
+	</div>
+	<div style="flex:10%;height:100px">
+		E
+	</div>
+	-->
+	<div style="flex:60%">
+		<canvas id="canvas" style="width:100%;height:100%"></canvas>
+	</div>
+	<div id="depth" style="flex:10%">
+		<div id="depth-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	</div>
+	<div id="pump" style="flex:10%">
+		<div id="pump-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	</div>
+	<div id="ctd" style="flex:10%">
+		<div id="ctd-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	</div>
+	<div id="optics" style="flex:10%">
+		<div id="optics-container" style="height:100%;margin:10px 0px 10px 50px"></div>
+	</div>
+</div>
+<br>
+<span>Yo Count: </span>
+<select id="yoselect">
+	<option value="1">1</option>
+	<option value="2" selected>2</option>
+	<option value="3">3</option>
+	<option value="4">4</option>
+	<option value="5">5</option>
+	<option value="6">6</option>
+	<option value="7">7</option>
+	<option value="8">8</option>
+</select>
+<div id="debug"></div>
+
+</body>
+<script>
+
+// need to set the canvas dimensions based on what it was allotted in the layout
+let canvas = document.getElementById("canvas");
+canvas.width = canvas.scrollWidth;
+canvas.height = canvas.scrollHeight;
+
+let DiveCanvas = (
+	function() {
+		let smooth = 15;
+
+		// just grab these once and reuse
+		let canvas = document.getElementById("canvas");
+		let context = canvas.getContext("2d");
+
+		// use the same font and orientation
+		context.font = "10px serif";
+
+		let drawcontrolpoints = false;
+
+		// glider vs float enum
+		const VehicleType = Object.freeze(
+			{
+				GLIDER: 0,
+				FLOAT: 1
+			}
+		);
+
+		// margin is the area where no drawing should occur
+		const MARGIN = 8;
+
+		// gutter is where the axes are drawn and includes a margin
+		const GUTTER = 40;
+
+		const WIDTH = canvas.width - (MARGIN + GUTTER);
+		const HEIGHT = canvas.height - (MARGIN + GUTTER);
+
+		let yocount = 2;
+		let mindepth = 250.0;
+		let maxdepth = 1000.0;
+		let pumpdepth = 500.0;
+		let minctd = 0.0;
+		let maxctd = 800.0;
+		let minoptics = 250.0;
+		let maxoptics = 1000.0;
+
+		function log(...s) {
+			document.getElementById("debug").innerText += s.join(" ") + "\n";
+		}
+
+		function getMinutes() {
+			return 360.0;
+		}
+
+		function getParkDepth() {
+			return 1000.0;
+		}
+
+		function getDeepDepth() {
+			return 1250.0;
+		}
+
+		// the plot depth is a bit different that the absolute max depth because
+		// the plot depth adds a bit of padding so the bottom of the plot doesn't
+		// run off and bump into the bottom of the plot area
+		function getPlotDepth(vehicletype) {
+
+			// we want to keep the depth consistent so make it always 1500
+			return 1500.0 * 1.08;
+
+			/*
+			let depth = -1;
+
+			try {
+				if(vehicletype == VehicleType.GLIDER) {
+					depth = getMaxDepth();
+
+				} else if(vehicletype == VehicleType.FLOAT) {
+					let deep = getDeepDepth();
+					let park = getParkDepth();
+					if(deep > park) {
+						depth = deep;
+					} else {
+						depth = park;
+					}
+				}
+			} catch(e) {
+				// pass
+			}
+
+			if(depth < 0) {
+				return 0;
+			}
+
+			// add a little padding so the plot doesn't hit the bottom
+			return depth * 1.08;
+			*/
+		}
+
+		function drawTimeAxis() {
+
+			// translate to bottom of plot
+			context.translate(GUTTER, canvas.height - MARGIN);
+
+			// draw the axis line
+			context.strokeStyle = "black";
+			context.beginPath();
+			context.moveTo(0, 0);
+			context.lineTo(WIDTH, 0);
+			context.stroke();
+
+			// get desired minutes and compute the segment width as a power of ten using the log
+			let mins = getMinutes();
+			let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(mins)) - 1));
+
+			// the step width and number of steps are computed from the mins and segment above
+			let step = WIDTH / (mins / segment);
+			let steps = Math.ceil(WIDTH / step); // instinct says floor, but this is ceil because of 0-index?
+
+			// a skip for the text as there should never be more than one hundred total steps
+			let skip = Math.ceil(steps / 25);
+			
+			context.fillStyle = "black";
+			context.textAlign = "center";
+
+			// i is a basic counter for the steps, px is pixels, and x is segment we're on for labels
+			for(let i = 0, px = 0, x = 0; i < steps; i += 1, px += step, x += segment) {
+				context.beginPath();
+				context.moveTo(px, 0);
+				context.lineTo(px, -8);
+				context.stroke();
+
+				if(i % skip == 0) {
+					context.fillText(x.toString(), px, -10);
+				}
+			}
+
+			context.translate(-GUTTER, -(canvas.height - MARGIN));
+		}
+
+		// see depth axis comments as technique is the same
+		function drawDepthAxis(vehicletype) {
+			context.translate(MARGIN, MARGIN);
+
+			context.strokeStyle = "black";
+			context.beginPath();
+			context.moveTo(0, 0);
+			context.lineTo(0, HEIGHT);
+			context.stroke();
+
+			let plotdepth = getPlotDepth(vehicletype);
+			let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(plotdepth)) - 1));
+
+			let step = HEIGHT / (plotdepth / segment);
+			let steps = Math.ceil(HEIGHT / step);
+			let skip = Math.ceil(steps / 25);
+
+			context.fillStyle = "black";
+			context.textAlign = "start";
+
+			for(let i = 0, py = 0, y = 0; i < steps; i += 1, py += step, y += segment) {
+				context.beginPath();
+				context.moveTo(0, py);
+				context.lineTo(6, py);
+				context.stroke();
+
+				if(i % skip == 0) {
+					context.fillText(y.toString(), 8, py + 3.5);
+				}
+			}
+
+			context.translate(-MARGIN, -MARGIN);
+		}
+
+		function drawAxes(vehicletype) {
+			drawTimeAxis();
+			drawDepthAxis(vehicletype);
+		}
+
+		// draw the control points to make sure they're correct
+		function drawControlPoints(points) {
+			if(!drawcontrolpoints) {
+				return;
+			}
+			
+			context.fillStyle = "red";
+			points.forEach(
+				point => {
+					context.beginPath();
+					context.arc(...point, 3, 0, Math.PI * 2);
+					context.fill();
+				}
+			);
+		}
+
+		function drawGliderProfile() {
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			drawAxes(VehicleType.GLIDER);
+
+			context.translate(GUTTER, MARGIN);
+
+			// if one yo then there is no min depth
+			if(yocount <= 1) {
+				yocount = 1;
+				mindepth = 0;
+			
+			// otherwise just set the min depth to ten for yos
+			} else if(mindepth < 0) {
+				mindepth = 10;
+			}
+
+			let mins = getMinutes();
+			let plotdepth = getPlotDepth(VehicleType.GLIDER);
+
+			// normalize the pixels per meter and minute
+			let ppmeter = HEIGHT / plotdepth;
+			let ppminute = WIDTH / mins;
+
+			let controlpoints = [];
+			let path = new Path2D();
+			path.moveTo(0, 0);
+
+			// move a half-yo at a time
+			let xdelta = WIDTH / (yocount * 2);
+			let ymax = maxdepth * ppmeter;
+			let ymin = mindepth * ppmeter;
+
+			// keep track of the previous position for control points
+			let prevx = -1;
+			let prevy = -1;
+
+			for(let x = xdelta, halfyo = 1; halfyo < ((yocount * 2) + 1); x += xdelta, halfyo += 1) {
+				let y = 0;
+
+				// first half yo is max depth or apogee
+				if(halfyo % 2 == 1) {
+					y = ymax;
+
+				// second half is min depth or perigee
+				} else {
+					// y is initialized to zero so reset non-end point
+					if(halfyo != (yocount * 2)) {
+						y = ymin;
+					}
+				}
+
+				// first segment
+				if(halfyo == 1) {
+					let cp = [x - smooth, y];
+					controlpoints.push(cp);
+					path.quadraticCurveTo(...cp, x, y);
+				
+				// last segment
+				} else if(halfyo == (yocount * 2)) {
+					let cp = [prevx + smooth, prevy];
+					controlpoints.push(cp);
+					path.quadraticCurveTo(...cp, x, y);
+					
+				// inner segment
+				} else {
+					let cp1 = [prevx + smooth, prevy];
+					let cp2 = [x - smooth, y];
+					controlpoints.push(cp1, cp2);
+					path.bezierCurveTo(...cp1, ...cp2, x, y);
+				}
+
+				prevx = x;
+				prevy = y;
+			}
+
+			context.strokeStyle = "blue";
+			context.stroke(path);
+			drawControlPoints(controlpoints);
+
+			context.strokeStyle = "black";
+			context.setLineDash([3, 3]);
+			let pumppath = new Path2D();
+			pumppath.moveTo(0, pumpdepth * ppmeter);
+			pumppath.lineTo(WIDTH, pumpdepth * ppmeter);
+			context.stroke(pumppath);
+
+			// clip the ctd using the same path after translation
+			context.save();
+
+			let ctdclip = new Path2D();
+			ctdclip.rect(0, minctd * ppmeter, WIDTH, (maxctd - minctd) * ppmeter);
+			context.clip(ctdclip);
+
+			context.strokeStyle = "red";
+			context.translate(0, 10);
+			context.setLineDash([5, 5]);
+			context.stroke(path);
+			context.restore();
+
+			// similarly clip the optics
+			context.save();
+
+			let opticsclip = new Path2D();
+			opticsclip.rect(0, minoptics * ppmeter, WIDTH, (maxoptics - minoptics) * ppmeter);
+			context.clip(opticsclip);
+
+			context.strokeStyle = "green";
+			context.translate(0, -10);
+			context.setLineDash([5, 5]);
+			context.stroke(path);
+			context.restore();
+
+			context.translate(-GUTTER, -MARGIN);
+		}
+		
+		// currently note used for glider mission building
+		/*
+		function drawFloatProfile() {
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			context.strokeStyle = "black";
+			drawAxes(VehicleType.FLOAT);
+
+			context.translate(GUTTER, MARGIN);
+			// context.strokeRect(0, 0, WIDTH, HEIGHT);
+
+			let parkdepth = getParkDepth();
+			let deepdepth = getDeepDepth();
+			let deepdive = false;
+
+			if(deepdepth > parkdepth) {
+				deepdive = true;
+			}
+
+			let mins = getMinutes();
+			let plotdepth = getPlotDepth(VehicleType.FLOAT);
+
+			// normalize the pixels per meter and minute
+			let ppmeter = HEIGHT / plotdepth;
+			let ppminute = WIDTH / mins;
+
+			// keep track of the control points for plotting
+			let controlpoints = [];
+
+			// divide portions into sixths for now
+			let parkstartx = WIDTH / 6.0;
+			let parkstarty = parkdepth * ppmeter;
+			
+			// add an extra park length if not going deep
+			let parkendx = parkstartx + (((deepdive ? 3.0 : 4.0) * WIDTH) / 6.0);
+			let parkendy = parkstarty;
+
+			context.beginPath();
+			context.moveTo(0, 0);
+			
+			// dive
+			let cp = [parkstartx - smooth, parkstarty];
+			controlpoints.push(cp);
+			context.quadraticCurveTo(...cp, parkstartx, parkstarty);
+
+			// park
+			context.lineTo(parkendx, parkendy);
+
+			// deep (optional)
+			if(deepdive) {
+				let deepx = parkendx + (WIDTH / 6.0);
+				let deepy = deepdepth * ppmeter;
+
+				let cp1 = [parkendx + smooth, parkendy];
+				let cp2 = [deepx - smooth, deepy];
+				controlpoints.push(cp1, cp2);
+
+				// bezier takes two control points
+				context.bezierCurveTo(...cp1, ...cp2, deepx, deepy);
+
+				// reset the park values so the end doesn't need to know if we went deep
+				parkendx = deepx;
+				parkendy = deepy;
+			}
+
+			// profile
+			let profilex = WIDTH;
+			let profiley = 0;
+
+			cp = [parkendx + smooth, parkendy];
+			controlpoints.push(cp);
+			context.quadraticCurveTo(...cp, profilex, profiley);
+
+			context.stroke();
+			drawControlPoints(controlpoints);
+
+			context.translate(-GUTTER, -MARGIN);
+		}
+		*/
+		
+		return {
+			draw: function(minDepth, maxDepth, pumpDepth, minCTD, maxCTD, minOptics, maxOptics) {
+				mindepth = minDepth;
+				maxdepth = maxDepth;
+				pumpdepth = pumpDepth;
+				minctd = minCTD;
+				maxctd = maxCTD;
+				minoptics = minOptics;
+				maxoptics = maxOptics;
+				
+				drawGliderProfile();
+			},
+			setYoCount: function(yoCount) {
+				yocount = yoCount;
+				drawGliderProfile();
+			}
+		}
+	}
+)();
+
+document.getElementById("yoselect").addEventListener(
+	"change",
+	function(e) {
+		// always in range
+		DiveCanvas.setYoCount(e.srcElement.selectedIndex + 1);
+	}
+);
+
+let Sliders = (
+	function() {
+
+		let depthContainer = document.getElementById('depth-container');
+		let pumpContainer = document.getElementById('pump-container');
+		let ctdContainer = document.getElementById('ctd-container');
+		let opticsContainer = document.getElementById('optics-container');
+
+		// options for two handles
+		let depthOptions = {
+			range: {
+				'min': 0,
+				'max': 1500
+			},
+			start: [200, 1450],
+			connect: [false, true, false],
+			step: 1,
+
+			format: {
+				to: function(value) {
+					return value | 0;
+				},
+				from: function(value) {
+					return parseInt(value);
+				}
+			},
+
+			tooltips: [true, true],
+
+			// allows us to do depth-down
+			// note not needed since default creates max at bottom
+			// direction: 'rtl',
+
+			// allows the range between handles to be dragged
+			// note this disables the default 'tap' behavior that animates the handles to the tapped position
+			// also note 'snap' might be a better option than 'tap' when animations break down
+			behaviour: 'drag',
+
+			// might need to use this if the set keeps wigging out
+			// animate: false
+
+			// note: Set dimensions! Vertical sliders don't assume a default height, so a height needs to be set. Any unit can be used, including px, em or rem.
+			orientation: 'vertical'
+
+			// pips are nice but might take up too much room
+			// note there are a bunch of modes available so this might not be the best one
+			/*
+			pips: {
+				mode: 'steps',
+				density: 20,
+				filter: function(value, type) {
+					if(value % 100 == 0) {
+						return 1;
+					}
+
+					// if(value % 50 == 0) {
+					// 	return 2;
+					// }
+
+					return -1;
+				}
+			}
+			*/
+		}
+
+		// options for a single handle based on the double handle
+		let pumpOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			pumpOptions,
+			{
+				start: [ 500 ],
+				connect: [false, false],
+				tooltips: true,
+				behaviour: 'snap'
+			}
+		);
+
+		let ctdOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			ctdOptions,
+			{
+				start: [0, 800]
+			}
+		)
+
+		let opticsOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			opticsOptions,
+			{
+				start: [250, 1000]
+			}
+		)
+
+		// note event fire order: 'start' > 'slide' > 'drag' > 'update' > 'change' > 'set' > 'end'
+		noUiSlider.create(depthContainer, depthOptions);
+		noUiSlider.create(pumpContainer, pumpOptions);
+		noUiSlider.create(ctdContainer, ctdOptions);
+		noUiSlider.create(opticsContainer, opticsOptions);
+
+		let depthSlider = depthContainer.noUiSlider;
+		let pumpSlider = pumpContainer.noUiSlider;
+		let ctdSlider = ctdContainer.noUiSlider;
+		let opticsSlider = opticsContainer.noUiSlider;
+
+		function fireRedraw() {
+			DiveCanvas.draw(...depthSlider.get(true), pumpSlider.get(true), ...ctdSlider.get(true), ...opticsSlider.get(true));
+		}
+
+		depthSlider.on(
+			"slide", // note 'update' given even more events, but probably not needed
+			function(values, handle) {
+
+				if(handle == 1) {
+					let value = values[handle];
+					let pumpValue = pumpSlider.get(true);
+					let ctdValue = ctdSlider.get(true)[handle];
+					let opticsValue = opticsSlider.get(true)[handle];
+
+					if(value < pumpValue) {
+						pumpSlider.set(value);
+					}
+
+					if(value < ctdValue) {
+						ctdSlider.set([null, value]);
+					}
+					
+					if(value < opticsValue) {
+						opticsSlider.set([null, value]);
+					}
+				}
+
+				fireRedraw();
+			}
+		);
+
+		// handler to update drawing canvas when other sliders set depth slider
+		depthSlider.on(
+			"set",
+			function(values, handle) {
+				fireRedraw();
+			}
+		)
+
+		pumpSlider.on(
+			"slide",
+			function(values) {
+				let value = values[0];
+				let depthValues = depthSlider.get(true);
+
+				if(value > depthValues[1]) {
+					depthSlider.set([null, value]);
+				}
+
+				fireRedraw();
+			}
+		);
+
+		function handleDependentSlide(dependSlider, values, handle) {
+			if(handle == 1) {
+				let value = values[handle];
+				let dependValue = dependSlider.get(true)[handle];
+
+				if(value > dependValue) {
+					dependSlider.set([null, value]);
+				}
+			}
+
+			fireRedraw();
+		}
+
+		ctdSlider.on(
+			"slide",
+			function(values, handle) {
+				handleDependentSlide(depthSlider, values, handle);
+			}
+		);
+
+		opticsSlider.on(
+			"slide",
+			function(values, handle) {
+				handleDependentSlide(depthSlider, values, handle);
+			}
+		);
+
+		fireRedraw();
+
+		// this will be useful when a sensor is turned off
+		// can also pass an int that would disable the handle instead of the whole thing
+		// slider.noUiSlider.disable();
+
+		// these are the components that can be updated from the updateOptions() method (similar to create):
+		// 'margin', 'padding', 'limit', 'step', 'range', 'pips', 'tooltips', 'animate' and 'snap'
+
+		// use this when we want to completely dump a slider and start over
+		// slider.noUiSlider.destroy()
+
+		// Set the slider value to 20
+		// depth.noUiSlider.set([600, 800]);
+
+		// Read the slider value.
+		// alert(depth.noUiSlider.get());
+
+		// Read the position as a percentage
+		// alert(depth.noUiSlider.getPositions());
+	}
+)();
+
+</script>
+</html>

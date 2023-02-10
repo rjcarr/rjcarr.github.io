@@ -5,7 +5,7 @@
 	<title>Dive Drawing Demo</title>
 	<style>
 		#canvas {
-			border: 1px solid black;
+			border: 0px solid black;
 		}
 
 		th, td {
@@ -21,9 +21,9 @@
 </head>
 <body>
 <h3>Dive Profile Drawing Demo</h3>
-<canvas id="canvas" width="640" height="480"></canvas>
+<canvas id="canvas" width="800" height="480"></canvas>
 <br>
-<table width="640">
+<table width="800">
 	<tr>
 		<th><b>Common</b></th>
 		<th><b>Glider</b></th>
@@ -50,6 +50,8 @@
 
 </body>
 <script>
+	let smooth = 15;
+
 	// just grab these once and reuse
 	let canvas = document.getElementById("canvas");
 	let context = canvas.getContext("2d");
@@ -57,7 +59,7 @@
 	// use the same font and orientation
 	context.font = "10px serif";
 
-	let drawcontrolpoints = false;
+	let drawcontrolpoints = true	;
 
 	// glider vs float enum
 	const VehicleType = Object.freeze(
@@ -284,20 +286,20 @@
 
 			// first segment
 			if(halfyo == 1) {
-				let cp = [x - 50, y];
+				let cp = [x - smooth, y];
 				controlpoints.push(cp);
 				context.quadraticCurveTo(...cp, x, y);
 			
 			// last segment
 			} else if(halfyo == (yocount * 2)) {
-				let cp = [prevx + 50, prevy];
+				let cp = [prevx + smooth, prevy];
 				controlpoints.push(cp);
 				context.quadraticCurveTo(...cp, x, y);
 				
 			// inner segment
 			} else {
-				let cp1 = [prevx + 50, prevy];
-				let cp2 = [x - 50, y];
+				let cp1 = [prevx + smooth, prevy];
+				let cp2 = [x - smooth, y];
 				controlpoints.push(cp1, cp2);
 				context.bezierCurveTo(...cp1, ...cp2, x, y);
 			}
@@ -358,7 +360,7 @@
 		context.moveTo(0, 0);
 		
 		// dive
-		let cp = [parkstartx - 50, parkstarty];
+		let cp = [parkstartx - smooth, parkstarty];
 		controlpoints.push(cp);
 		context.quadraticCurveTo(...cp, parkstartx, parkstarty);
 
@@ -370,23 +372,23 @@
 			let deepx = parkendx + (WIDTH / 6.0);
 			let deepy = deepdepth * ppmeter;
 
-			let cp1 = [parkendx + 50, parkendy];
-			let cp2 = [deepx - 50, deepy];
+			let cp1 = [parkendx + smooth, parkendy];
+			let cp2 = [deepx - smooth, deepy];
 			controlpoints.push(cp1, cp2);
 
 			// bezier takes two control points
 			context.bezierCurveTo(...cp1, ...cp2, deepx, deepy);
 
 			// reset the park values so the end doesn't need to know if we went deep
-			parkx = deepx;
-			parky = deepy;
+			parkendx = deepx;
+			parkendy = deepy;
 		}
 
 		// profile
 		let profilex = WIDTH;
 		let profiley = 0;
 
-		cp = [parkx + 50, parky];
+		cp = [parkendx + smooth, parkendy];
 		controlpoints.push(cp);
 		context.quadraticCurveTo(...cp, profilex, profiley);
 
