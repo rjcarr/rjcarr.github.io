@@ -8,7 +8,7 @@
 		container {
 			width: 100%;
 			display: grid;
-			grid-template-columns: 10fr 1fr 1fr 1fr 1fr;
+			grid-template-columns: 8fr 1fr 1fr 1fr 1fr;
 		}
 
 		/* selects every direct child div */
@@ -52,7 +52,7 @@
 
 		/* natrually the dropdown will grow to its widest item */
 		container .sliderselect {
-			max-width: 40px;
+			max-width: 45px;
 		}
 
 		container input[type="text"] {
@@ -202,11 +202,13 @@ let DiveCanvas = (
 		let ctdvisible = true;
 		let minctd = 0.0;
 		let maxctd = maxdepth;
+		let ctdperiod = 1;
 
 		// optics optional
 		let opticsvisible = true;
 		let minoptics = 0.0;
 		let maxoptics = maxdepth;
+		let opticsperiod = 1;
 
 		function log(...s) {
 			document.getElementById("debug").innerText += s.join(" ") + "\n";
@@ -231,34 +233,6 @@ let DiveCanvas = (
 
 			// we want to keep the depth consistent so make it always 1500
 			return 1500.0 + 1.05;
-
-			/*
-			let depth = -1;
-
-			try {
-				if(vehicletype == VehicleType.GLIDER) {
-					depth = getMaxDepth();
-
-				} else if(vehicletype == VehicleType.FLOAT) {
-					let deep = getDeepDepth();
-					let park = getParkDepth();
-					if(deep > park) {
-						depth = deep;
-					} else {
-						depth = park;
-					}
-				}
-			} catch(e) {
-				// pass
-			}
-
-			if(depth < 0) {
-				return 0;
-			}
-
-			// add a little padding so the plot doesn't hit the bottom
-			return depth * 1.08;
-			*/
 		}
 
 		function drawTimeAxis() {
@@ -478,85 +452,6 @@ let DiveCanvas = (
 			context.translate(-GUTTER, -MARGIN);
 		}
 		
-		// currently note used for glider mission building
-		/*
-		function drawFloatProfile() {
-			context.clearRect(0, 0, canvas.width, canvas.height);
-			context.strokeStyle = "black";
-			drawAxes(VehicleType.FLOAT);
-
-			context.translate(GUTTER, MARGIN);
-			// context.strokeRect(0, 0, WIDTH, HEIGHT);
-
-			let parkdepth = getParkDepth();
-			let deepdepth = getDeepDepth();
-			let deepdive = false;
-
-			if(deepdepth > parkdepth) {
-				deepdive = true;
-			}
-
-			let mins = getMinutes();
-			let plotdepth = getPlotDepth(VehicleType.FLOAT);
-
-			// normalize the pixels per meter and minute
-			let ppmeter = HEIGHT / plotdepth;
-			let ppminute = WIDTH / mins;
-
-			// keep track of the control points for plotting
-			let controlpoints = [];
-
-			// divide portions into sixths for now
-			let parkstartx = WIDTH / 6.0;
-			let parkstarty = parkdepth * ppmeter;
-			
-			// add an extra park length if not going deep
-			let parkendx = parkstartx + (((deepdive ? 3.0 : 4.0) * WIDTH) / 6.0);
-			let parkendy = parkstarty;
-
-			context.beginPath();
-			context.moveTo(0, 0);
-			
-			// dive
-			let cp = [parkstartx - smooth, parkstarty];
-			controlpoints.push(cp);
-			context.quadraticCurveTo(...cp, parkstartx, parkstarty);
-
-			// park
-			context.lineTo(parkendx, parkendy);
-
-			// deep (optional)
-			if(deepdive) {
-				let deepx = parkendx + (WIDTH / 6.0);
-				let deepy = deepdepth * ppmeter;
-
-				let cp1 = [parkendx + smooth, parkendy];
-				let cp2 = [deepx - smooth, deepy];
-				controlpoints.push(cp1, cp2);
-
-				// bezier takes two control points
-				context.bezierCurveTo(...cp1, ...cp2, deepx, deepy);
-
-				// reset the park values so the end doesn't need to know if we went deep
-				parkendx = deepx;
-				parkendy = deepy;
-			}
-
-			// profile
-			let profilex = WIDTH;
-			let profiley = 0;
-
-			cp = [parkendx + smooth, parkendy];
-			controlpoints.push(cp);
-			context.quadraticCurveTo(...cp, profilex, profiley);
-
-			context.stroke();
-			drawControlPoints(controlpoints);
-
-			context.translate(-GUTTER, -MARGIN);
-		}
-		*/
-		
 		return {
 			draw: function(minDepth, maxDepth, pumpDepth, minCTD, maxCTD, minOptics, maxOptics) {
 				mindepth = minDepth;
@@ -571,16 +466,29 @@ let DiveCanvas = (
 				
 				drawGliderProfile();
 			},
+
 			setYoCount: function(yoCount) {
 				yocount = yoCount;
 				drawGliderProfile();
 			},
+
 			setCTDVisible(visible) {
 				ctdvisible = visible;
 				drawGliderProfile();
 			},
+
+			setCTDPeriod(period) {
+				ctdperiod = period;
+				drawGliderProfile();
+			},
+
 			setOpticsVisible(visible) {
 				opticsvisible = visible;
+				drawGliderProfile();
+			},
+
+			setOpticsPeriod(period) {
+				opticsperiod = period;
 				drawGliderProfile();
 			}
 		}
