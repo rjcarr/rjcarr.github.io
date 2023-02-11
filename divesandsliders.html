@@ -861,16 +861,23 @@ let Sliders = (
 			setCTDEnabled: function(enabled) {
 				if(enabled) {
 					ctdSlider.enable();
+
 				} else {
 					ctdSlider.disable();
 				}
+
+				ctdContainer.querySelectorAll("input").forEach(e => e.disabled = !enabled);
 			},
+
 			setOpticsEnabled: function(enabled) {
 				if(enabled) {
 					opticsSlider.enable();
+				
 				} else {
 					opticsSlider.disable();
 				}
+
+				opticsContainer.querySelectorAll("input").forEach(e => e.disabled = !enabled);
 			}
 		}
 	}
