@@ -210,6 +210,20 @@ let DiveCanvas = (
 		let maxoptics = maxdepth;
 		let opticsperiod = 1;
 
+		let periodmap = {
+			 "1": [true,  true,  true,  true,  true,  true],
+			 "2": [true,  false, true,  false, true,  false],
+			 "3": [true,  false, false, true,  false, false],
+			 "4": [true,  false, false, false, true,  false],
+			 "5": [true,  false, false, false, false, true],
+			 "0": [true,  false, false, false, false, false],
+			"-1": [false, true,  true,  true,  true,  true],
+			"-2": [false, false, true,  false, true,  false],
+			"-3": [false, false, false, true,  false, false],
+			"-4": [false, false, false, false, true,  false],
+			"-5": [false, false, false, false, false, true]
+		};
+
 		function log(...s) {
 			document.getElementById("debug").innerText += s.join(" ") + "\n";
 		}
@@ -358,6 +372,20 @@ let DiveCanvas = (
 			let path = new Path2D();
 			path.moveTo(0, 0);
 
+			let ctdpath = null;
+			let ctdperiods = periodmap[ctdperiod];
+			if(ctdvisible && minctd != null && maxctd != null) {
+				ctdpath = new Path2D();
+				ctdpath.moveTo(0, 0);
+			}
+
+			let opticspath = null;
+			let opticsperiods = periodmap[opticsperiod];
+			if(opticsvisible && minoptics != null && maxoptics != null) {
+				opticspath = new Path2D();
+				opticspath.moveTo(0, 0);
+			}
+
 			// move a half-yo at a time
 			let xdelta = WIDTH / (yocount * 2);
 			let ymax = maxdepth * ppmeter;
@@ -369,6 +397,7 @@ let DiveCanvas = (
 
 			for(let x = xdelta, halfyo = 1; halfyo < ((yocount * 2) + 1); x += xdelta, halfyo += 1) {
 				let y = 0;
+				let yo = (Math.floor((halfyo + 1) / 2)) - 1;
 
 				// first half yo is max depth or apogee
 				if(halfyo % 2 == 1) {
@@ -387,12 +416,44 @@ let DiveCanvas = (
 					let cp = [x - smooth, y];
 					controlpoints.push(cp);
 					path.quadraticCurveTo(...cp, x, y);
+
+					if(ctdpath != null) {
+						if(ctdperiods[yo]) {
+							ctdpath.quadraticCurveTo(...cp, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo]) {
+							opticspath.quadraticCurveTo(...cp, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
 				
 				// last segment
 				} else if(halfyo == (yocount * 2)) {
 					let cp = [prevx + smooth, prevy];
 					controlpoints.push(cp);
 					path.quadraticCurveTo(...cp, x, y);
+
+					if(ctdpath != null) {
+						if(ctdperiods[yo]) {
+							ctdpath.quadraticCurveTo(...cp, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo]) {
+							opticspath.quadraticCurveTo(...cp, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
 					
 				// inner segment
 				} else {
@@ -400,6 +461,22 @@ let DiveCanvas = (
 					let cp2 = [x - smooth, y];
 					controlpoints.push(cp1, cp2);
 					path.bezierCurveTo(...cp1, ...cp2, x, y);
+					
+					if(ctdpath != null) {
+						if(ctdperiods[yo]) {
+							ctdpath.bezierCurveTo(...cp1, ...cp2, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo]) {
+							opticspath.bezierCurveTo(...cp1, ...cp2, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
 				}
 
 				prevx = x;
@@ -419,7 +496,7 @@ let DiveCanvas = (
 			pumppath.lineTo(WIDTH, pumpdepth * ppmeter);
 			context.stroke(pumppath);
 
-			if(ctdvisible && minctd != null && maxctd != null) {
+			if(ctdpath != null) {
 				// clip the ctd using the same path after translation
 				context.save();
 
@@ -430,11 +507,11 @@ let DiveCanvas = (
 				context.strokeStyle = "red";
 				context.translate(0, 10);
 				context.setLineDash([5, 5]);
-				context.stroke(path);
+				context.stroke(ctdpath);
 				context.restore();
 			}
 
-			if(opticsvisible && minoptics != null && maxoptics != null) {
+			if(opticspath != null) {
 				// similarly clip the optics
 				context.save();
 
@@ -445,7 +522,7 @@ let DiveCanvas = (
 				context.strokeStyle = "green";
 				context.translate(0, -10);
 				context.setLineDash([5, 5]);
-				context.stroke(path);
+				context.stroke(opticspath);
 				context.restore();
 			}
 
@@ -825,38 +902,45 @@ document.getElementById("yoselect").addEventListener(
 	"change",
 	function(e) {
 		// always in range
-		DiveCanvas.setYoCount(e.target.value);
+		DiveCanvas.setYoCount(parseInt(e.target.value));
 	}
 );
 
 document.getElementById("ctdcheck").addEventListener(
 	"change",
 	function(e) {
-		Sliders.setCTDEnabled(e.target.checked);
-		DiveCanvas.setCTDVisible(e.target.checked);
+		let checked = e.target.checked;
+
+		Sliders.setCTDEnabled(checked);
+		DiveCanvas.setCTDVisible(checked);
+
+		document.getElementById("ctdselect").disabled = checked ? false : true;
 	}
 );
 
 document.getElementById("ctdselect").addEventListener(
 	"change",
 	function(e) {
-		window.alert("ctd: " + e.target.value);
-		
+		DiveCanvas.setCTDPeriod(parseInt(e.target.value));
 	}
 )
 
 document.getElementById("opticscheck").addEventListener(
 	"change",
 	function(e) {
-		Sliders.setOpticsEnabled(e.target.checked);
-		DiveCanvas.setOpticsVisible(e.target.checked);
+		let checked = e.target.checked;
+
+		Sliders.setOpticsEnabled(checked);
+		DiveCanvas.setOpticsVisible(checked);
+
+		document.getElementById("opticsselect").disabled = checked ? false : true;
 	}
 );
 
 document.getElementById("opticsselect").addEventListener(
 	"change",
 	function(e) {
-		window.alert("optics: " + e.target.value);
+		DiveCanvas.setOpticsPeriod(parseInt(e.target.value));
 	}
 )
 
