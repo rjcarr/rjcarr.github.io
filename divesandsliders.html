@@ -36,7 +36,7 @@
 		/* selects the div under the seventh element and after as the slider needs its own div and it needs to be sized */
 		container > div:nth-child(n + 7) > div {
 			/* note we make the slider a bit shorter than the plot in order to account for the x-axis gutter */
-			height: 450px;
+			height: 445px;
 		}
 
 		/* center the slider headers */
@@ -80,7 +80,7 @@
 		<div>
 			<input type="checkbox" title="Altimeter Toggle" checked></input>
 		</div>
-		<select id="yoselect" class="sliderselect">
+		<select id="yoselect" class="sliderselect" title="Yo Count">
 			<option value="count" disabled>Select Yo Count ...</option>
 			<option value="1">1</option>
 			<option value="2" selected>2</option>
@@ -99,9 +99,9 @@
 	<div>
 		CTD
 		<div>
-			<input type="checkbox" id="ctdcheck" title="CTD Toggle" checked></input>
+			<input type="checkbox" id="ctdcheck" title="CTD Sensor Toggle" checked></input>
 		</div>
-		<select id="ctdperiodselect" class="sliderselect">
+		<select id="ctdperiodselect" class="sliderselect" title="CTD Period">
 			<option value="period" disabled>Select Sample Period ...</option>
 			<option value="-5">-5</option>
 			<option value="-4">-4</option>
@@ -116,7 +116,7 @@
 			<option value="5">5</option>
 		</select>
 		<br>
-		<select id="ctdstateselect" class="sliderselect">
+		<select id="ctdstateselect" class="sliderselect" title="CTD State">
 			<option value="state" disabled>Select Sample State ...</option>
 			<option value="0">0&nbsp;&nbsp;(None)</option>
 			<option value="1">1&nbsp;&nbsp;(Dive)</option>
@@ -139,9 +139,9 @@
 	<div>
 		Optics
 		<div>
-			<input type="checkbox" id="opticscheck" title="Optics Toggle" checked></input>
+			<input type="checkbox" id="opticscheck" title="Optics Sensor Toggle" checked></input>
 		</div>
-		<select id="opticsperiodselect" class="sliderselect">
+		<select id="opticsperiodselect" class="sliderselect" title="Optics Period">
 			<option value="period" disabled>Select Sample Period ...</option>
 			<option value="-5">-5</option>
 			<option value="-4">-4</option>
@@ -156,7 +156,7 @@
 			<option value="5">5</option>
 		</select>
 		<br>
-		<select id="opticsstateselect" class="sliderselect">
+		<select id="opticsstateselect" class="sliderselect" title="Optics State">
 			<option value="state" disabled>Select Sample State ...</option>
 			<option value="0">0&nbsp;&nbsp;(None)</option>
 			<option value="1">1&nbsp;&nbsp;(Dive)</option>
@@ -752,13 +752,64 @@ let Sliders = (
 		let ctdSlider = ctdContainer.noUiSlider;
 		let opticsSlider = opticsContainer.noUiSlider;
 
+		// gather slider values and send message to redraw canvas
 		function fireRedraw() {
+			// sending in true will convert the strings out of the elements into to numbers
 			DiveCanvas.draw(...depthSlider.get(true), pumpSlider.get(true), ...ctdSlider.get(true), ...opticsSlider.get(true));
 		}
 
+		// for use with the sensor sliders since they work the same
+		function handleDependentSlide(dependSlider, values, handle) {
+			if(handle == 1) {
+				let value = values[handle];
+				let dependValue = dependSlider.get(true)[handle];
+
+				if(value > dependValue) {
+					dependSlider.set([null, value]);
+				}
+			}
+
+			fireRedraw();
+		}
+
+		function createTooltipTextbox(index, sliderContainer) {
+			var tooltip = document.createElement("div");
+			var textbox = document.createElement("input");
+			textbox.type = "text";
+					
+			tooltip.className = 'noUi-tooltip';
+			tooltip.appendChild(textbox);
+			
+			// on change, set the slider
+			textbox.addEventListener("change", 
+				function() {
+					// sending in null will not alter existing values
+					var values = [null, null];
+					values[index] = this.value;
+					sliderContainer.noUiSlider.set(values)
+				}
+			);
+			
+			// catch all selections and make sure they don't reach the handle
+			// would need these to stop propogation on the generated event
+			// input.addEventListener("mousedown", stopProp);
+			// input.addEventListener("touchstart", stopProp);
+			// input.addEventListener("pointerdown", stopProp);
+			
+			// Find the lower/upper slider handle and insert the tooltip
+			sliderContainer.querySelector(index ? ".noUi-handle-upper" : ".noUi-handle-lower").appendChild(tooltip);
+			return textbox;
+		}
+
+		let depthTooltipTextboxes = [
+			createTooltipTextbox(0, depthContainer), 
+			createTooltipTextbox(1, depthContainer)
+		];
+
 		depthSlider.on(
-			"slide", // note "update" given even more events, but probably not needed
+			"update",
 			function(values, handle) {
+				depthTooltipTextboxes[handle].value = values[handle];
 
 				if(handle == 1) {
 					let value = values[handle];
@@ -783,17 +834,12 @@ let Sliders = (
 			}
 		);
 
-		// handler to update drawing canvas when other sliders set depth slider
-		depthSlider.on(
-			"set",
-			function(values, handle) {
-				fireRedraw();
-			}
-		);
-
+		let pumpTooltipTextbox = createTooltipTextbox(0, pumpContainer);
 		pumpSlider.on(
-			"slide",
+			"update",
 			function(values) {
+				pumpTooltipTextbox.value = values[0];
+
 				let value = values[0];
 				let depthValues = depthSlider.get(true);
 
@@ -802,103 +848,6 @@ let Sliders = (
 				}
 
 				fireRedraw();
-			}
-		);
-
-		// for when the pump slider is set using the tooltip
-		pumpSlider.on(
-			"set",
-			function(values, handle) {
-				fireRedraw();
-			}
-		);
-
-		function handleDependentSlide(dependSlider, values, handle) {
-			if(handle == 1) {
-				let value = values[handle];
-				let dependValue = dependSlider.get(true)[handle];
-
-				if(value > dependValue) {
-					dependSlider.set([null, value]);
-				}
-			}
-
-			fireRedraw();
-		}
-
-		ctdSlider.on(
-			"slide",
-			function(values, handle) {
-				handleDependentSlide(depthSlider, values, handle);
-			}
-		);
-
-		ctdSlider.on(
-			"set",
-			function(values, handle) {
-				fireRedraw();
-			}
-		);
-
-		opticsSlider.on(
-			"slide",
-			function(values, handle) {
-				handleDependentSlide(depthSlider, values, handle);
-			}
-		);
-
-		opticsSlider.on(
-			"set",
-			function(values, handle) {
-				fireRedraw();
-			}
-		);
-
-		function createTooltipTextbox(index, slider) {
-			var tooltip = document.createElement("div");
-			var textbox = document.createElement("input");
-			textbox.type = "text";
-					
-			tooltip.className = 'noUi-tooltip';
-			tooltip.appendChild(textbox);
-			
-			// on change, set the slider
-			textbox.addEventListener("change", 
-				function(){
-					var values = [null, null];
-					values[index] = this.value;
-					slider.noUiSlider.set(values)
-				}
-			);
-			
-			// catch all selections and make sure they don't reach the handle
-			// would need these to stop propogation on the generated event
-			// input.addEventListener("mousedown", stopProp);
-			// input.addEventListener("touchstart", stopProp);
-			// input.addEventListener("pointerdown", stopProp);
-			
-			// Find the lower/upper slider handle and insert the tooltip
-			slider.querySelector(index ? ".noUi-handle-upper" : ".noUi-handle-lower").appendChild(tooltip);
-			return textbox;
-		}
-
-		let depthTooltipTextboxes = [
-			createTooltipTextbox(0, depthContainer), 
-			createTooltipTextbox(1, depthContainer)
-		];
-
-		depthSlider.on(
-			"update",
-			function(values, handle) {
-				depthTooltipTextboxes[handle].value = values[handle];
-			}
-		);
-
-		let pumpTooltopTextbox = createTooltipTextbox(0, pumpContainer);
-		pumpSlider.on(
-			"update",
-			function(values) {
-				pumpTooltopTextbox.value = values[0];
 			}
 		)
 
@@ -911,6 +860,7 @@ let Sliders = (
 			"update",
 			function(values, handle) {
 				ctdTooltipTextboxes[handle].value = values[handle];
+				handleDependentSlide(depthSlider, values, handle);
 			}
 		);
 
@@ -923,6 +873,7 @@ let Sliders = (
 			"update",
 			function(values, handle) {
 				opticsTooltipTextboxes[handle].value = values[handle];
+				handleDependentSlide(depthSlider, values, handle);
 			}
 		);
 
