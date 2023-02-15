@@ -52,7 +52,7 @@
 
 		/* natrually the dropdown will grow to its widest item */
 		container .sliderselect {
-			max-width: 45px;
+			max-width: 42px;
 		}
 
 		container input[type="text"] {
@@ -101,7 +101,7 @@
 		<div>
 			<input type="checkbox" id="ctdcheck" title="CTD Toggle" checked></input>
 		</div>
-		<select id="ctdselect" class="sliderselect">
+		<select id="ctdperiodselect" class="sliderselect">
 			<option value="period" disabled>Select Sample Period ...</option>
 			<option value="-5">-5</option>
 			<option value="-4">-4</option>
@@ -115,13 +115,33 @@
 			<option value="4">4</option>
 			<option value="5">5</option>
 		</select>
+		<br>
+		<select id="ctdstateselect" class="sliderselect">
+			<option value="state" disabled>Select Sample State ...</option>
+			<option value="0">0&nbsp;&nbsp;(None)</option>
+			<option value="1">1&nbsp;&nbsp;(Dive)</option>
+			<option value="2">2&nbsp;&nbsp;(Hover)</option>
+			<option value="3">3&nbsp;&nbsp;(Dive | Hover)</option>
+			<option value="4">4&nbsp;&nbsp;(Climb)</option>
+			<option value="5" selected>5&nbsp;&nbsp;(Dive | Climb)</option>
+			<option value="6">6&nbsp;&nbsp;(Hover | Climb)</option>
+			<option value="7">7&nbsp;&nbsp;(Dive | Hover | Climb)</option>
+			<option value="8">8&nbsp;&nbsp;(Surface)</option>
+			<option value="9">9&nbsp;&nbsp;(Dive | Surface)</option>
+			<option value="10">10&nbsp;&nbsp;(Hover | Surface)</option>
+			<option value="11">11&nbsp;&nbsp;(Dive | Hover | Surface)</option>
+			<option value="12">12&nbsp;&nbsp;(Climb | Surface)</option>
+			<option value="13">13&nbsp;&nbsp;(Dive | Climb | Surface)</option>
+			<option value="14">14&nbsp;&nbsp;(Hover | Climb | Surface)</option>
+			<option value="15">15&nbsp;&nbsp;(All)</option>
+		</select>
 	</div>
 	<div>
 		Optics
 		<div>
 			<input type="checkbox" id="opticscheck" title="Optics Toggle" checked></input>
 		</div>
-		<select id="opticsselect" class="sliderselect">
+		<select id="opticsperiodselect" class="sliderselect">
 			<option value="period" disabled>Select Sample Period ...</option>
 			<option value="-5">-5</option>
 			<option value="-4">-4</option>
@@ -134,6 +154,26 @@
 			<option value="3">3</option>
 			<option value="4">4</option>
 			<option value="5">5</option>
+		</select>
+		<br>
+		<select id="opticsstateselect" class="sliderselect">
+			<option value="state" disabled>Select Sample State ...</option>
+			<option value="0">0&nbsp;&nbsp;(None)</option>
+			<option value="1">1&nbsp;&nbsp;(Dive)</option>
+			<option value="2">2&nbsp;&nbsp;(Hover)</option>
+			<option value="3">3&nbsp;&nbsp;(Dive | Hover)</option>
+			<option value="4">4&nbsp;&nbsp;(Climb)</option>
+			<option value="5" selected>5&nbsp;&nbsp;(Dive | Climb)</option>
+			<option value="6">6&nbsp;&nbsp;(Hover | Climb)</option>
+			<option value="7">7&nbsp;&nbsp;(Dive | Hover | Climb)</option>
+			<option value="8">8&nbsp;&nbsp;(Surface)</option>
+			<option value="9">9&nbsp;&nbsp;(Dive | Surface)</option>
+			<option value="10">10&nbsp;&nbsp;(Hover | Surface)</option>
+			<option value="11">11&nbsp;&nbsp;(Dive | Hover | Surface)</option>
+			<option value="12">12&nbsp;&nbsp;(Climb | Surface)</option>
+			<option value="13">13&nbsp;&nbsp;(Dive | Climb | Surface)</option>
+			<option value="14">14&nbsp;&nbsp;(Hover | Climb | Surface)</option>
+			<option value="15">15&nbsp;&nbsp;(All)</option>
 		</select>
 	</div>
 	<div id="canvas-container">
@@ -165,6 +205,22 @@ canvas.height = canvas.scrollHeight;
 
 let DiveCanvas = (
 	function() {
+		/*
+		# 0 = not sampling, 1 = diving, 2 = hovering, 3 = dive/hover
+		# 4 = climb, 5 = dive/climb, 6 = hover/climb, 7 = dive/hover/climb
+		# 8 = on surface, 9 = dive/on surface, 10 = hover / on surface
+		# 11 = dive/hover/on surface, 12 = climb/on surface
+		# 13 = dive/climb/on surface, 14 = hover/climb/on surface
+		# 15 = absolutely everything
+		*/
+
+		// these are the states, and populated for state_to_sample
+		// for now we're really only concerned with dive and climb
+		const DIVE = 0x01;
+		const HOVER = 0x02;
+		const CLIMB = 0x04;
+		const SURFACE = 0x08;
+
 		let smooth = 15;
 
 		// just grab these once and reuse
@@ -203,12 +259,14 @@ let DiveCanvas = (
 		let minctd = 0.0;
 		let maxctd = maxdepth;
 		let ctdperiod = 1;
+		let ctdstate = 5;
 
 		// optics optional
 		let opticsvisible = true;
 		let minoptics = 0.0;
 		let maxoptics = maxdepth;
 		let opticsperiod = 1;
+		let opticsstate = 5;
 
 		let periodmap = {
 			 "1": [true,  true,  true,  true,  true,  true],
@@ -373,6 +431,8 @@ let DiveCanvas = (
 			path.moveTo(0, 0);
 
 			let ctdpath = null;
+			let ctddive = ctdstate & DIVE;
+			let ctdclimb = ctdstate & CLIMB;
 			let ctdperiods = periodmap[ctdperiod];
 			if(ctdvisible && minctd != null && maxctd != null) {
 				ctdpath = new Path2D();
@@ -380,6 +440,8 @@ let DiveCanvas = (
 			}
 
 			let opticspath = null;
+			let opticsdive = opticsstate & DIVE;
+			let opticsclimb = opticsstate & CLIMB;
 			let opticsperiods = periodmap[opticsperiod];
 			if(opticsvisible && minoptics != null && maxoptics != null) {
 				opticspath = new Path2D();
@@ -398,6 +460,10 @@ let DiveCanvas = (
 			for(let x = xdelta, halfyo = 1; halfyo < ((yocount * 2) + 1); x += xdelta, halfyo += 1) {
 				let y = 0;
 				let yo = (Math.floor((halfyo + 1) / 2)) - 1;
+
+				// figure out ctd and optics even if we're not drawing them
+				let ctddraw = (((halfyo % 2 == 1) && ctddive) || ((halfyo % 2 == 0) && ctdclimb))? true : false;
+				let opticsdraw = (((halfyo % 2 == 1) && opticsdive) || ((halfyo % 2 == 0) && opticsclimb))? true : false;
 
 				// first half yo is max depth or apogee
 				if(halfyo % 2 == 1) {
@@ -418,7 +484,7 @@ let DiveCanvas = (
 					path.quadraticCurveTo(...cp, x, y);
 
 					if(ctdpath != null) {
-						if(ctdperiods[yo]) {
+						if(ctdperiods[yo] && ctddraw) {
 							ctdpath.quadraticCurveTo(...cp, x, y);
 						} else {
 							ctdpath.moveTo(x, y);
@@ -426,7 +492,7 @@ let DiveCanvas = (
 					}
 
 					if(opticspath != null) {
-						if(opticsperiods[yo]) {
+						if(opticsperiods[yo] && opticsdraw) {
 							opticspath.quadraticCurveTo(...cp, x, y);
 						} else {
 							opticspath.moveTo(x, y);
@@ -440,7 +506,7 @@ let DiveCanvas = (
 					path.quadraticCurveTo(...cp, x, y);
 
 					if(ctdpath != null) {
-						if(ctdperiods[yo]) {
+						if(ctdperiods[yo] && ctddraw) {
 							ctdpath.quadraticCurveTo(...cp, x, y);
 						} else {
 							ctdpath.moveTo(x, y);
@@ -448,7 +514,7 @@ let DiveCanvas = (
 					}
 
 					if(opticspath != null) {
-						if(opticsperiods[yo]) {
+						if(opticsperiods[yo] && opticsdraw) {
 							opticspath.quadraticCurveTo(...cp, x, y);
 						} else {
 							opticspath.moveTo(x, y);
@@ -463,7 +529,7 @@ let DiveCanvas = (
 					path.bezierCurveTo(...cp1, ...cp2, x, y);
 					
 					if(ctdpath != null) {
-						if(ctdperiods[yo]) {
+						if(ctdperiods[yo] && ctddraw) {
 							ctdpath.bezierCurveTo(...cp1, ...cp2, x, y);
 						} else {
 							ctdpath.moveTo(x, y);
@@ -471,7 +537,7 @@ let DiveCanvas = (
 					}
 
 					if(opticspath != null) {
-						if(opticsperiods[yo]) {
+						if(opticsperiods[yo] && opticsdraw) {
 							opticspath.bezierCurveTo(...cp1, ...cp2, x, y);
 						} else {
 							opticspath.moveTo(x, y);
@@ -559,6 +625,11 @@ let DiveCanvas = (
 				drawGliderProfile();
 			},
 
+			setCTDState(state) {
+				ctdstate = state;
+				drawGliderProfile();
+			},
+
 			setOpticsVisible(visible) {
 				opticsvisible = visible;
 				drawGliderProfile();
@@ -566,6 +637,11 @@ let DiveCanvas = (
 
 			setOpticsPeriod(period) {
 				opticsperiod = period;
+				drawGliderProfile();
+			},
+
+			setOpticsState(state) {
+				opticsstate = state;
 				drawGliderProfile();
 			}
 		}
@@ -914,16 +990,24 @@ document.getElementById("ctdcheck").addEventListener(
 		Sliders.setCTDEnabled(checked);
 		DiveCanvas.setCTDVisible(checked);
 
-		document.getElementById("ctdselect").disabled = checked ? false : true;
+		document.getElementById("ctdperiodselect").disabled = checked ? false : true;
+		document.getElementById("ctdstateselect").disabled = checked ? false : true;
 	}
 );
 
-document.getElementById("ctdselect").addEventListener(
+document.getElementById("ctdperiodselect").addEventListener(
 	"change",
 	function(e) {
 		DiveCanvas.setCTDPeriod(parseInt(e.target.value));
 	}
-)
+);
+
+document.getElementById("ctdstateselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setCTDState(parseInt(e.target.value));
+	}
+);
 
 document.getElementById("opticscheck").addEventListener(
 	"change",
@@ -933,16 +1017,24 @@ document.getElementById("opticscheck").addEventListener(
 		Sliders.setOpticsEnabled(checked);
 		DiveCanvas.setOpticsVisible(checked);
 
-		document.getElementById("opticsselect").disabled = checked ? false : true;
+		document.getElementById("opticsperiodselect").disabled = checked ? false : true;
+		document.getElementById("opticsstateselect").disabled = checked ? false : true;
 	}
 );
 
-document.getElementById("opticsselect").addEventListener(
+document.getElementById("opticsperiodselect").addEventListener(
 	"change",
 	function(e) {
 		DiveCanvas.setOpticsPeriod(parseInt(e.target.value));
 	}
-)
+);
+
+document.getElementById("opticsstateselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setOpticsState(parseInt(e.target.value));
+	}
+);
 
 </script>
 </html>
