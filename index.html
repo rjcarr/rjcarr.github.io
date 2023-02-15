@@ -2,50 +2,990 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<title>Mission Builder Demo</title>
-	<link rel="stylesheet" type="text/css" href="styles.css">
+	<title>Dive Drawing Demo</title>
+	<style>
+		/* grid container */
+		container {
+			width: 100%;
+			display: grid;
+			grid-template-columns: 8fr 1fr 1fr 1fr 1fr;
+		}
+
+		/* selects every direct child div */
+		container > div { }
+
+		/* selects every 5th element as 1, 6, 11, etc */
+		container > div:nth-child(5n + 1) {}
+
+		/* selects the sixth element and after */
+		container > div:nth-child(n + 6) {
+			height: 480px;
+		}
+
+		/* selects the first five elements to give space between rows */
+		container > div:nth-child(-n + 5) {
+			margin-bottom: 20px;
+		}
+
+		/* the canvas needs to fill the entire grid cell */
+		container > div:nth-child(6) > canvas {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* selects the div under the seventh element and after as the slider needs its own div and it needs to be sized */
+		container > div:nth-child(n + 7) > div {
+			/* note we make the slider a bit shorter than the plot in order to account for the x-axis gutter */
+			height: 445px;
+		}
+
+		/* center the slider headers */
+		container > div:nth-child(n + 2):nth-child(-n + 5) {
+			justify-self: center;
+			text-align: center;
+		}
+
+		/* the slider containers need to be justified */
+		container > div:nth-child(n + 7) {
+			justify-self: center;
+		}
+
+		/* natrually the dropdown will grow to its widest item */
+		container .sliderselect {
+			max-width: 42px;
+		}
+
+		container input[type="text"] {
+			width: 35px;
+			border: none;
+			text-align: center;
+		}
+
+	</style>
+	<link href="noslider/nouislider.css" rel="stylesheet">
+	<script src="noslider/nouislider.js"></script>
 </head>
 <body>
-<h3>Mission Builder Demo</h3>
-<table width="100%" border="1">
-	<tr>
-		<td>
-			<canvas id="canvas" width="600" height="360"></canvas>
-		</td>
-		<td>
-			<input type="range" id="range"></input>
-			<input type="text" id="range-value"></input>
-		</td>
+<h3>Dive Profile Drawing Demo</h3>
 
-	</tr>
-</table>
-<br>
-<table width="800">
-	<tr>
-		<th><b>Common</b></th>
-		<th><b>Glider</b></th>
-		<th><b>Float</b></th>
-	</tr>
-	<tr>
-		<td>
-			dive time: <input type="text" value="360" id="minutes" placeholder="minutes"></input>
-		</td>
-		<td>
-			yo count: <input type="text" value="2" id="yo"></input><br>
-			min depth: <input type="text" value="250" id="mindepth"></input><br>
-			max depth: <input type="text" value="1000" id="maxdepth"></input><br>
-			<input type="button" value="Draw Glider Profile" id="canvas-glider"></input>
-		</td>
-		<td>
-			park depth: <input type="text" value="1000" id="parkdepth"></input><br>
-			deep depth: <input type="text" value="1250" id="deepdepth"></input><br>
-			<input type="button" value="Draw Float Profile" id="canvas-float"></input>
-		</td>
-	</tr>
-</table>
+<container>
+	<div>
+		<span>Mission Type: </span>
+		<select id="typeselect">
+			<option selected>Yo (Specified Number)</option>
+		</select>
+	</div>
+	<div>
+		Depth
+		<div>
+			<input type="checkbox" title="Altimeter Toggle" checked></input>
+		</div>
+		<select id="yoselect" class="sliderselect" title="Yo Count">
+			<option value="count" disabled>Select Yo Count ...</option>
+			<option value="1">1</option>
+			<option value="2" selected>2</option>
+			<option value="3">3</option>
+			<option value="4">4</option>
+			<option value="5">5</option>
+			<option value="6">6</option>
+		</select>
+	</div>
+	<div>
+		Pump
+		<div>
+			<input type="checkbox" title="Pump Toggle" style="visibility: hidden;"></input>
+		</div>
+	</div>
+	<div>
+		CTD
+		<div>
+			<input type="checkbox" id="ctdcheck" title="CTD Sensor Toggle" checked></input>
+		</div>
+		<select id="ctdperiodselect" class="sliderselect" title="CTD Period">
+			<option value="period" disabled>Select Sample Period ...</option>
+			<option value="-5">-5</option>
+			<option value="-4">-4</option>
+			<option value="-3">-3</option>
+			<option value="-2">-2</option>
+			<option value="-1">-1</option>
+			<option value="0">0</option>
+			<option value="1" selected>1</option>
+			<option value="2">2</option>
+			<option value="3">3</option>
+			<option value="4">4</option>
+			<option value="5">5</option>
+		</select>
+		<br>
+		<select id="ctdstateselect" class="sliderselect" title="CTD State">
+			<option value="state" disabled>Select Sample State ...</option>
+			<option value="0">0&nbsp;&nbsp;(None)</option>
+			<option value="1">1&nbsp;&nbsp;(Dive)</option>
+			<option value="2">2&nbsp;&nbsp;(Hover)</option>
+			<option value="3">3&nbsp;&nbsp;(Dive | Hover)</option>
+			<option value="4">4&nbsp;&nbsp;(Climb)</option>
+			<option value="5" selected>5&nbsp;&nbsp;(Dive | Climb)</option>
+			<option value="6">6&nbsp;&nbsp;(Hover | Climb)</option>
+			<option value="7">7&nbsp;&nbsp;(Dive | Hover | Climb)</option>
+			<option value="8">8&nbsp;&nbsp;(Surface)</option>
+			<option value="9">9&nbsp;&nbsp;(Dive | Surface)</option>
+			<option value="10">10&nbsp;&nbsp;(Hover | Surface)</option>
+			<option value="11">11&nbsp;&nbsp;(Dive | Hover | Surface)</option>
+			<option value="12">12&nbsp;&nbsp;(Climb | Surface)</option>
+			<option value="13">13&nbsp;&nbsp;(Dive | Climb | Surface)</option>
+			<option value="14">14&nbsp;&nbsp;(Hover | Climb | Surface)</option>
+			<option value="15">15&nbsp;&nbsp;(All)</option>
+		</select>
+	</div>
+	<div>
+		Optics
+		<div>
+			<input type="checkbox" id="opticscheck" title="Optics Sensor Toggle" checked></input>
+		</div>
+		<select id="opticsperiodselect" class="sliderselect" title="Optics Period">
+			<option value="period" disabled>Select Sample Period ...</option>
+			<option value="-5">-5</option>
+			<option value="-4">-4</option>
+			<option value="-3">-3</option>
+			<option value="-2">-2</option>
+			<option value="-1">-1</option>
+			<option value="0">0</option>
+			<option value="1" selected>1</option>
+			<option value="2">2</option>
+			<option value="3">3</option>
+			<option value="4">4</option>
+			<option value="5">5</option>
+		</select>
+		<br>
+		<select id="opticsstateselect" class="sliderselect" title="Optics State">
+			<option value="state" disabled>Select Sample State ...</option>
+			<option value="0">0&nbsp;&nbsp;(None)</option>
+			<option value="1">1&nbsp;&nbsp;(Dive)</option>
+			<option value="2">2&nbsp;&nbsp;(Hover)</option>
+			<option value="3">3&nbsp;&nbsp;(Dive | Hover)</option>
+			<option value="4">4&nbsp;&nbsp;(Climb)</option>
+			<option value="5" selected>5&nbsp;&nbsp;(Dive | Climb)</option>
+			<option value="6">6&nbsp;&nbsp;(Hover | Climb)</option>
+			<option value="7">7&nbsp;&nbsp;(Dive | Hover | Climb)</option>
+			<option value="8">8&nbsp;&nbsp;(Surface)</option>
+			<option value="9">9&nbsp;&nbsp;(Dive | Surface)</option>
+			<option value="10">10&nbsp;&nbsp;(Hover | Surface)</option>
+			<option value="11">11&nbsp;&nbsp;(Dive | Hover | Surface)</option>
+			<option value="12">12&nbsp;&nbsp;(Climb | Surface)</option>
+			<option value="13">13&nbsp;&nbsp;(Dive | Climb | Surface)</option>
+			<option value="14">14&nbsp;&nbsp;(Hover | Climb | Surface)</option>
+			<option value="15">15&nbsp;&nbsp;(All)</option>
+		</select>
+	</div>
+	<div id="canvas-container">
+		<canvas id="canvas"></canvas>
+	</div>
+	<div>
+		<div id="depth-container"></div>
+	</div>
+	<div>
+		<div id="pump-container"></div>
+	</div>
+	<div>
+		<div id="ctd-container"></div>
+	</div>
+	<div>
+		<div id="optics-container"></div>
+	</div>
+</container>
+
 <div id="debug"></div>
 
 </body>
-<script src="canvas.js"></script>
-<script src="range.js"></script>
+<script>
+
+// need to set the canvas dimensions based on what it was allotted in the layout
+let canvas = document.getElementById("canvas");
+canvas.width = canvas.scrollWidth;
+canvas.height = canvas.scrollHeight;
+
+let DiveCanvas = (
+	function() {
+		/*
+		# 0 = not sampling, 1 = diving, 2 = hovering, 3 = dive/hover
+		# 4 = climb, 5 = dive/climb, 6 = hover/climb, 7 = dive/hover/climb
+		# 8 = on surface, 9 = dive/on surface, 10 = hover / on surface
+		# 11 = dive/hover/on surface, 12 = climb/on surface
+		# 13 = dive/climb/on surface, 14 = hover/climb/on surface
+		# 15 = absolutely everything
+		*/
+
+		// these are the states, and populated for state_to_sample
+		// for now we're really only concerned with dive and climb
+		const DIVE = 0x01;
+		const HOVER = 0x02;
+		const CLIMB = 0x04;
+		const SURFACE = 0x08;
+
+		let smooth = 15;
+
+		// just grab these once and reuse
+		let canvas = document.getElementById("canvas");
+		let context = canvas.getContext("2d");
+
+		// use the same font and orientation
+		context.font = "10px serif";
+
+		let drawcontrolpoints = false;
+
+		// glider vs float enum
+		const VehicleType = Object.freeze(
+			{
+				GLIDER: 0,
+				FLOAT: 1
+			}
+		);
+
+		// margin is the area where no drawing should occur
+		const MARGIN = 8;
+
+		// gutter is where the axes are drawn and includes a margin
+		const GUTTER = 40;
+
+		const WIDTH = canvas.width - (MARGIN + GUTTER);
+		const HEIGHT = canvas.height - (MARGIN + GUTTER);
+
+		let yocount = 2;
+		let mindepth = 250.0;
+		let maxdepth = 1000.0;
+		let pumpdepth = 500.0;
+
+		// ctd optional
+		let ctdvisible = true;
+		let minctd = 0.0;
+		let maxctd = maxdepth;
+		let ctdperiod = 1;
+		let ctdstate = 5;
+
+		// optics optional
+		let opticsvisible = true;
+		let minoptics = 0.0;
+		let maxoptics = maxdepth;
+		let opticsperiod = 1;
+		let opticsstate = 5;
+
+		let periodmap = {
+			 "1": [true,  true,  true,  true,  true,  true],
+			 "2": [true,  false, true,  false, true,  false],
+			 "3": [true,  false, false, true,  false, false],
+			 "4": [true,  false, false, false, true,  false],
+			 "5": [true,  false, false, false, false, true],
+			 "0": [true,  false, false, false, false, false],
+			"-1": [false, true,  true,  true,  true,  true],
+			"-2": [false, false, true,  false, true,  false],
+			"-3": [false, false, false, true,  false, false],
+			"-4": [false, false, false, false, true,  false],
+			"-5": [false, false, false, false, false, true]
+		};
+
+		function log(...s) {
+			document.getElementById("debug").innerText += s.join(" ") + "\n";
+		}
+
+		function getMinutes() {
+			return 360.0;
+		}
+
+		function getParkDepth() {
+			return 1000.0;
+		}
+
+		function getDeepDepth() {
+			return 1250.0;
+		}
+
+		// the plot depth is a bit different that the absolute max depth because
+		// the plot depth adds a bit of padding so the bottom of the plot doesn't
+		// run off and bump into the bottom of the plot area
+		function getPlotDepth(vehicletype) {
+
+			// we want to keep the depth consistent so make it always 1500
+			return 1500.0 + 1.05;
+		}
+
+		function drawTimeAxis() {
+
+			// translate to bottom of plot
+			context.translate(GUTTER, canvas.height - MARGIN);
+
+			// draw the axis line
+			context.strokeStyle = "black";
+			context.beginPath();
+			context.moveTo(0, 0);
+			context.lineTo(WIDTH, 0);
+			context.stroke();
+
+			// get desired minutes and compute the segment width as a power of ten using the log
+			let mins = getMinutes();
+			let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(mins)) - 1));
+
+			// the step width and number of steps are computed from the mins and segment above
+			let step = WIDTH / (mins / segment);
+			let steps = Math.ceil(WIDTH / step); // instinct says floor, but this is ceil because of 0-index?
+
+			// a skip for the text as there should never be more than one hundred total steps
+			let skip = Math.ceil(steps / 25);
+			
+			context.fillStyle = "black";
+			context.textAlign = "center";
+
+			// i is a basic counter for the steps, px is pixels, and x is segment we're on for labels
+			for(let i = 0, px = 0, x = 0; i < steps; i += 1, px += step, x += segment) {
+				context.beginPath();
+				context.moveTo(px, 0);
+				context.lineTo(px, -8);
+				context.stroke();
+
+				if(i % skip == 0) {
+					context.fillText(x.toString(), px, -10);
+				}
+			}
+
+			context.translate(-GUTTER, -(canvas.height - MARGIN));
+		}
+
+		// see depth axis comments as technique is the same
+		function drawDepthAxis(vehicletype) {
+			context.translate(MARGIN, MARGIN);
+
+			context.strokeStyle = "black";
+			context.beginPath();
+			context.moveTo(0, 0);
+			context.lineTo(0, HEIGHT);
+			context.stroke();
+
+			let plotdepth = getPlotDepth(vehicletype);
+			let segment = Math.max(1, Math.pow(10, Math.floor(Math.log10(plotdepth)) - 1));
+
+			let step = HEIGHT / (plotdepth / segment);
+			let steps = Math.ceil(HEIGHT / step);
+			let skip = Math.ceil(steps / 25);
+
+			context.fillStyle = "black";
+			context.textAlign = "start";
+
+			for(let i = 0, py = 0, y = 0; i < steps; i += 1, py += step, y += segment) {
+				context.beginPath();
+				context.moveTo(0, py);
+				context.lineTo(6, py);
+				context.stroke();
+
+				if(i % skip == 0) {
+					context.fillText(y.toString(), 8, py + 3.5);
+				}
+			}
+
+			context.translate(-MARGIN, -MARGIN);
+		}
+
+		function drawAxes(vehicletype) {
+			// drop the time axis until we can figure out how to handle
+			// drawTimeAxis();
+			drawDepthAxis(vehicletype);
+		}
+
+		// draw the control points to make sure they're correct
+		function drawControlPoints(points) {
+			if(!drawcontrolpoints) {
+				return;
+			}
+			
+			context.fillStyle = "red";
+			points.forEach(
+				point => {
+					context.beginPath();
+					context.arc(...point, 3, 0, Math.PI * 2);
+					context.fill();
+				}
+			);
+		}
+
+		function drawGliderProfile() {
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			drawAxes(VehicleType.GLIDER);
+
+			context.translate(GUTTER, MARGIN);
+
+			// if one yo then there is no min depth (see below)
+			if(yocount <= 1) {
+				yocount = 1;
+			
+			// otherwise just set the min depth to ten for yos
+			} else if(mindepth < 0) {
+				mindepth = 10;
+			}
+
+			let mins = getMinutes();
+			let plotdepth = getPlotDepth(VehicleType.GLIDER);
+
+			// normalize the pixels per meter and minute
+			let ppmeter = HEIGHT / plotdepth;
+			let ppminute = WIDTH / mins;
+
+			let controlpoints = [];
+			let path = new Path2D();
+			path.moveTo(0, 0);
+
+			let ctdpath = null;
+			let ctddive = ctdstate & DIVE;
+			let ctdclimb = ctdstate & CLIMB;
+			let ctdperiods = periodmap[ctdperiod];
+			if(ctdvisible && minctd != null && maxctd != null) {
+				ctdpath = new Path2D();
+				ctdpath.moveTo(0, 0);
+			}
+
+			let opticspath = null;
+			let opticsdive = opticsstate & DIVE;
+			let opticsclimb = opticsstate & CLIMB;
+			let opticsperiods = periodmap[opticsperiod];
+			if(opticsvisible && minoptics != null && maxoptics != null) {
+				opticspath = new Path2D();
+				opticspath.moveTo(0, 0);
+			}
+
+			// move a half-yo at a time
+			let xdelta = WIDTH / (yocount * 2);
+			let ymax = maxdepth * ppmeter;
+			let ymin = (yocount == 1) ? 0 : mindepth * ppmeter;
+
+			// keep track of the previous position for control points
+			let prevx = -1;
+			let prevy = -1;
+
+			for(let x = xdelta, halfyo = 1; halfyo < ((yocount * 2) + 1); x += xdelta, halfyo += 1) {
+				let y = 0;
+				let yo = (Math.floor((halfyo + 1) / 2)) - 1;
+
+				// figure out ctd and optics even if we're not drawing them
+				let ctddraw = (((halfyo % 2 == 1) && ctddive) || ((halfyo % 2 == 0) && ctdclimb))? true : false;
+				let opticsdraw = (((halfyo % 2 == 1) && opticsdive) || ((halfyo % 2 == 0) && opticsclimb))? true : false;
+
+				// first half yo is max depth or apogee
+				if(halfyo % 2 == 1) {
+					y = ymax;
+
+				// second half is min depth or perigee
+				} else {
+					// y is initialized to zero so reset non-end point
+					if(halfyo != (yocount * 2)) {
+						y = ymin;
+					}
+				}
+
+				// first segment
+				if(halfyo == 1) {
+					let cp = [x - smooth, y];
+					controlpoints.push(cp);
+					path.quadraticCurveTo(...cp, x, y);
+
+					if(ctdpath != null) {
+						if(ctdperiods[yo] && ctddraw) {
+							ctdpath.quadraticCurveTo(...cp, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo] && opticsdraw) {
+							opticspath.quadraticCurveTo(...cp, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
+				
+				// last segment
+				} else if(halfyo == (yocount * 2)) {
+					let cp = [prevx + smooth, prevy];
+					controlpoints.push(cp);
+					path.quadraticCurveTo(...cp, x, y);
+
+					if(ctdpath != null) {
+						if(ctdperiods[yo] && ctddraw) {
+							ctdpath.quadraticCurveTo(...cp, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo] && opticsdraw) {
+							opticspath.quadraticCurveTo(...cp, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
+					
+				// inner segment
+				} else {
+					let cp1 = [prevx + smooth, prevy];
+					let cp2 = [x - smooth, y];
+					controlpoints.push(cp1, cp2);
+					path.bezierCurveTo(...cp1, ...cp2, x, y);
+					
+					if(ctdpath != null) {
+						if(ctdperiods[yo] && ctddraw) {
+							ctdpath.bezierCurveTo(...cp1, ...cp2, x, y);
+						} else {
+							ctdpath.moveTo(x, y);
+						}
+					}
+
+					if(opticspath != null) {
+						if(opticsperiods[yo] && opticsdraw) {
+							opticspath.bezierCurveTo(...cp1, ...cp2, x, y);
+						} else {
+							opticspath.moveTo(x, y);
+						}
+					}
+				}
+
+				prevx = x;
+				prevy = y;
+			}
+
+			context.strokeStyle = "blue";
+			context.setLineDash([]);
+
+			context.stroke(path);
+			drawControlPoints(controlpoints);
+
+			context.strokeStyle = "black";
+			context.setLineDash([3, 3]);
+			let pumppath = new Path2D();
+			pumppath.moveTo(0, pumpdepth * ppmeter);
+			pumppath.lineTo(WIDTH, pumpdepth * ppmeter);
+			context.stroke(pumppath);
+
+			if(ctdpath != null) {
+				// clip the ctd using the same path after translation
+				context.save();
+
+				let ctdclip = new Path2D();
+				ctdclip.rect(0, minctd * ppmeter, WIDTH, (maxctd - minctd) * ppmeter);
+				context.clip(ctdclip);
+
+				context.strokeStyle = "red";
+				context.translate(0, 10);
+				context.setLineDash([5, 5]);
+				context.stroke(ctdpath);
+				context.restore();
+			}
+
+			if(opticspath != null) {
+				// similarly clip the optics
+				context.save();
+
+				let opticsclip = new Path2D();
+				opticsclip.rect(0, minoptics * ppmeter, WIDTH, (maxoptics - minoptics) * ppmeter);
+				context.clip(opticsclip);
+
+				context.strokeStyle = "green";
+				context.translate(0, -10);
+				context.setLineDash([5, 5]);
+				context.stroke(opticspath);
+				context.restore();
+			}
+
+			context.translate(-GUTTER, -MARGIN);
+		}
+		
+		return {
+			draw: function(minDepth, maxDepth, pumpDepth, minCTD, maxCTD, minOptics, maxOptics) {
+				mindepth = minDepth;
+				maxdepth = maxDepth;
+				pumpdepth = pumpDepth;
+
+				minctd = minCTD;
+				maxctd = maxCTD;
+
+				minoptics = minOptics;
+				maxoptics = maxOptics;
+				
+				drawGliderProfile();
+			},
+
+			setYoCount: function(yoCount) {
+				yocount = yoCount;
+				drawGliderProfile();
+			},
+
+			setCTDVisible(visible) {
+				ctdvisible = visible;
+				drawGliderProfile();
+			},
+
+			setCTDPeriod(period) {
+				ctdperiod = period;
+				drawGliderProfile();
+			},
+
+			setCTDState(state) {
+				ctdstate = state;
+				drawGliderProfile();
+			},
+
+			setOpticsVisible(visible) {
+				opticsvisible = visible;
+				drawGliderProfile();
+			},
+
+			setOpticsPeriod(period) {
+				opticsperiod = period;
+				drawGliderProfile();
+			},
+
+			setOpticsState(state) {
+				opticsstate = state;
+				drawGliderProfile();
+			}
+		}
+	}
+)();
+
+let Sliders = (
+	function() {
+
+		let depthContainer = document.getElementById("depth-container");
+		let pumpContainer = document.getElementById("pump-container");
+		let ctdContainer = document.getElementById("ctd-container");
+		let opticsContainer = document.getElementById("optics-container");
+
+		// options for two handles
+		let depthOptions = {
+			range: {
+				"min": 0,
+				"max": 1500
+			},
+			start: [200, 1450],
+			connect: [false, true, false],
+			step: 1,
+
+			format: {
+				to: function(value) {
+					return value | 0;
+				},
+				from: function(value) {
+					return parseInt(value);
+				}
+			},
+
+			tooltips: [true, true],
+
+			// allows us to do depth-down
+			// note not needed since default creates max at bottom
+			// direction: "rtl",
+
+			// allows the range between handles to be dragged
+			// note this disables the default "tap" behavior that animates the handles to the tapped position
+			// also note "snap' might be a better option than 'tap" when animations break down
+			behaviour: "drag",
+
+			// might need to use this if the set keeps wigging out
+			// animate: false
+
+			// note: Set dimensions! Vertical sliders don't assume a default height, so a height needs to be set. Any unit can be used, including px, em or rem.
+			orientation: "vertical"
+
+			// pips are nice but might take up too much room
+			// note there are a bunch of modes available so this might not be the best one
+			/*
+			pips: {
+				mode: "steps",
+				density: 20,
+				filter: function(value, type) {
+					if(value % 100 == 0) {
+						return 1;
+					}
+
+					// if(value % 50 == 0) {
+					// 	return 2;
+					// }
+
+					return -1;
+				}
+			}
+			*/
+		}
+
+		// options for a single handle based on the double handle
+		let pumpOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			pumpOptions,
+			{
+				start: [ 500 ],
+				connect: [true, false],
+				tooltips: true,
+				behaviour: "snap"
+			}
+		);
+
+		let ctdOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			ctdOptions,
+			{
+				start: [0, 800]
+			}
+		)
+
+		let opticsOptions = Object.assign({}, depthOptions);
+		Object.assign(
+			opticsOptions,
+			{
+				start: [250, 1000]
+			}
+		)
+
+		// note event fire order: 'start' > 'slide' > 'drag' > 'update' > 'change' > 'set' > 'end'
+		noUiSlider.create(depthContainer, depthOptions);
+		noUiSlider.create(pumpContainer, pumpOptions);
+		noUiSlider.create(ctdContainer, ctdOptions);
+		noUiSlider.create(opticsContainer, opticsOptions);
+
+		let depthSlider = depthContainer.noUiSlider;
+		let pumpSlider = pumpContainer.noUiSlider;
+		let ctdSlider = ctdContainer.noUiSlider;
+		let opticsSlider = opticsContainer.noUiSlider;
+
+		// gather slider values and send message to redraw canvas
+		function fireRedraw() {
+			// sending in true will convert the strings out of the elements into to numbers
+			DiveCanvas.draw(...depthSlider.get(true), pumpSlider.get(true), ...ctdSlider.get(true), ...opticsSlider.get(true));
+		}
+
+		// for use with the sensor sliders since they work the same
+		function handleDependentSlide(dependSlider, values, handle) {
+			if(handle == 1) {
+				let value = values[handle];
+				let dependValue = dependSlider.get(true)[handle];
+
+				if(value > dependValue) {
+					dependSlider.set([null, value]);
+				}
+			}
+
+			fireRedraw();
+		}
+
+		function createTooltipTextbox(index, sliderContainer) {
+			var tooltip = document.createElement("div");
+			var textbox = document.createElement("input");
+			textbox.type = "text";
+					
+			tooltip.className = 'noUi-tooltip';
+			tooltip.appendChild(textbox);
+			
+			// on change, set the slider
+			textbox.addEventListener("change", 
+				function() {
+					// sending in null will not alter existing values
+					var values = [null, null];
+					values[index] = this.value;
+					sliderContainer.noUiSlider.set(values)
+				}
+			);
+			
+			// catch all selections and make sure they don't reach the handle
+			// would need these to stop propogation on the generated event
+			// input.addEventListener("mousedown", stopProp);
+			// input.addEventListener("touchstart", stopProp);
+			// input.addEventListener("pointerdown", stopProp);
+			
+			// Find the lower/upper slider handle and insert the tooltip
+			sliderContainer.querySelector(index ? ".noUi-handle-upper" : ".noUi-handle-lower").appendChild(tooltip);
+			return textbox;
+		}
+
+		let depthTooltipTextboxes = [
+			createTooltipTextbox(0, depthContainer), 
+			createTooltipTextbox(1, depthContainer)
+		];
+
+		depthSlider.on(
+			"update",
+			function(values, handle) {
+				depthTooltipTextboxes[handle].value = values[handle];
+
+				if(handle == 1) {
+					let value = values[handle];
+					let pumpValue = pumpSlider.get(true);
+					let ctdValue = ctdSlider.get(true)[handle];
+					let opticsValue = opticsSlider.get(true)[handle];
+
+					if(value < pumpValue) {
+						pumpSlider.set(value);
+					}
+
+					if(value < ctdValue) {
+						ctdSlider.set([null, value]);
+					}
+					
+					if(value < opticsValue) {
+						opticsSlider.set([null, value]);
+					}
+				}
+
+				fireRedraw();
+			}
+		);
+
+		let pumpTooltipTextbox = createTooltipTextbox(0, pumpContainer);
+		pumpSlider.on(
+			"update",
+			function(values) {
+				pumpTooltipTextbox.value = values[0];
+
+				let value = values[0];
+				let depthValues = depthSlider.get(true);
+
+				if(value > depthValues[1]) {
+					depthSlider.set([null, value]);
+				}
+
+				fireRedraw();
+			}
+		)
+
+		let ctdTooltipTextboxes = [
+			createTooltipTextbox(0, ctdContainer), 
+			createTooltipTextbox(1, ctdContainer)
+		];
+
+		ctdSlider.on(
+			"update",
+			function(values, handle) {
+				ctdTooltipTextboxes[handle].value = values[handle];
+				handleDependentSlide(depthSlider, values, handle);
+			}
+		);
+
+		let opticsTooltipTextboxes = [
+			createTooltipTextbox(0, opticsContainer), 
+			createTooltipTextbox(1, opticsContainer)
+		];
+
+		opticsSlider.on(
+			"update",
+			function(values, handle) {
+				opticsTooltipTextboxes[handle].value = values[handle];
+				handleDependentSlide(depthSlider, values, handle);
+			}
+		);
+
+		// draw plot with current slider config
+		fireRedraw();
+
+		// this will be useful when a sensor is turned off
+		// can also pass an int that would disable the handle instead of the whole thing
+		// slider.noUiSlider.disable();
+
+		// these are the components that can be updated from the updateOptions() method (similar to create):
+		// 'margin', 'padding', 'limit', 'step', 'range', 'pips', 'tooltips', 'animate' and 'snap'
+
+		// use this when we want to completely dump a slider and start over
+		// slider.noUiSlider.destroy()
+
+		// Set the slider value to 20
+		// depth.noUiSlider.set([600, 800]);
+
+		// Read the slider value.
+		// alert(depth.noUiSlider.get());
+
+		// Read the position as a percentage
+		// alert(depth.noUiSlider.getPositions());
+
+		return {
+			setCTDEnabled: function(enabled) {
+				if(enabled) {
+					ctdSlider.enable();
+
+				} else {
+					ctdSlider.disable();
+				}
+
+				ctdContainer.querySelectorAll("input").forEach(e => e.disabled = !enabled);
+			},
+
+			setOpticsEnabled: function(enabled) {
+				if(enabled) {
+					opticsSlider.enable();
+				
+				} else {
+					opticsSlider.disable();
+				}
+
+				opticsContainer.querySelectorAll("input").forEach(e => e.disabled = !enabled);
+			}
+		}
+	}
+)();
+
+document.getElementById("yoselect").addEventListener(
+	"change",
+	function(e) {
+		// always in range
+		DiveCanvas.setYoCount(parseInt(e.target.value));
+	}
+);
+
+document.getElementById("ctdcheck").addEventListener(
+	"change",
+	function(e) {
+		let checked = e.target.checked;
+
+		Sliders.setCTDEnabled(checked);
+		DiveCanvas.setCTDVisible(checked);
+
+		document.getElementById("ctdperiodselect").disabled = checked ? false : true;
+		document.getElementById("ctdstateselect").disabled = checked ? false : true;
+	}
+);
+
+document.getElementById("ctdperiodselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setCTDPeriod(parseInt(e.target.value));
+	}
+);
+
+document.getElementById("ctdstateselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setCTDState(parseInt(e.target.value));
+	}
+);
+
+document.getElementById("opticscheck").addEventListener(
+	"change",
+	function(e) {
+		let checked = e.target.checked;
+
+		Sliders.setOpticsEnabled(checked);
+		DiveCanvas.setOpticsVisible(checked);
+
+		document.getElementById("opticsperiodselect").disabled = checked ? false : true;
+		document.getElementById("opticsstateselect").disabled = checked ? false : true;
+	}
+);
+
+document.getElementById("opticsperiodselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setOpticsPeriod(parseInt(e.target.value));
+	}
+);
+
+document.getElementById("opticsstateselect").addEventListener(
+	"change",
+	function(e) {
+		DiveCanvas.setOpticsState(parseInt(e.target.value));
+	}
+);
+
+</script>
 </html>
