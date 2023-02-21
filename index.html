@@ -256,14 +256,14 @@ let DiveCanvas = (
 
 		// ctd optional
 		let ctdvisible = true;
-		let minctd = 0.0;
+		let minctd = 0;
 		let maxctd = maxdepth;
 		let ctdperiod = 1;
 		let ctdstate = 5;
 
 		// optics optional
 		let opticsvisible = true;
-		let minoptics = 0.0;
+		let minoptics = 0;
 		let maxoptics = maxdepth;
 		let opticsperiod = 1;
 		let opticsstate = 5;
@@ -434,7 +434,7 @@ let DiveCanvas = (
 			let ctddive = ctdstate & DIVE;
 			let ctdclimb = ctdstate & CLIMB;
 			let ctdperiods = periodmap[ctdperiod];
-			if(ctdvisible && minctd != null && maxctd != null) {
+			if(ctdvisible && maxctd != null) {
 				ctdpath = new Path2D();
 				ctdpath.moveTo(0, 0);
 			}
@@ -443,7 +443,7 @@ let DiveCanvas = (
 			let opticsdive = opticsstate & DIVE;
 			let opticsclimb = opticsstate & CLIMB;
 			let opticsperiods = periodmap[opticsperiod];
-			if(opticsvisible && minoptics != null && maxoptics != null) {
+			if(opticsvisible && maxoptics != null) {
 				opticspath = new Path2D();
 				opticspath.moveTo(0, 0);
 			}
@@ -596,15 +596,11 @@ let DiveCanvas = (
 		}
 		
 		return {
-			draw: function(minDepth, maxDepth, pumpDepth, minCTD, maxCTD, minOptics, maxOptics) {
+			draw: function(minDepth, maxDepth, pumpDepth, maxCTD, maxOptics) {
 				mindepth = minDepth;
 				maxdepth = maxDepth;
 				pumpdepth = pumpDepth;
-
-				minctd = minCTD;
 				maxctd = maxCTD;
-
-				minoptics = minOptics;
 				maxoptics = maxOptics;
 				
 				drawGliderProfile();
@@ -718,26 +714,26 @@ let Sliders = (
 		Object.assign(
 			pumpOptions,
 			{
-				start: [ 500 ],
+				start: [500],
 				connect: [true, false],
 				tooltips: true,
 				behaviour: "snap"
 			}
 		);
 
-		let ctdOptions = Object.assign({}, depthOptions);
+		let ctdOptions = Object.assign({}, pumpOptions);
 		Object.assign(
 			ctdOptions,
 			{
-				start: [0, 800]
+				start: [1450]
 			}
 		)
 
-		let opticsOptions = Object.assign({}, depthOptions);
+		let opticsOptions = Object.assign({}, pumpOptions);
 		Object.assign(
 			opticsOptions,
 			{
-				start: [250, 1000]
+				start: [1450]
 			}
 		)
 
@@ -755,18 +751,15 @@ let Sliders = (
 		// gather slider values and send message to redraw canvas
 		function fireRedraw() {
 			// sending in true will convert the strings out of the elements into to numbers
-			DiveCanvas.draw(...depthSlider.get(true), pumpSlider.get(true), ...ctdSlider.get(true), ...opticsSlider.get(true));
+			DiveCanvas.draw(...depthSlider.get(true), pumpSlider.get(true), ctdSlider.get(true), opticsSlider.get(true));
 		}
 
 		// for use with the sensor sliders since they work the same
-		function handleDependentSlide(dependSlider, values, handle) {
-			if(handle == 1) {
-				let value = values[handle];
-				let dependValue = dependSlider.get(true)[handle];
-
-				if(value > dependValue) {
-					dependSlider.set([null, value]);
-				}
+		function handleDependentSlide(dependSlider, value) {
+			
+			let dependValue = dependSlider.get(true)[1];
+			if(value > dependValue) {
+				dependSlider.set([null, value]);
 			}
 
 			fireRedraw();
@@ -814,19 +807,19 @@ let Sliders = (
 				if(handle == 1) {
 					let value = values[handle];
 					let pumpValue = pumpSlider.get(true);
-					let ctdValue = ctdSlider.get(true)[handle];
-					let opticsValue = opticsSlider.get(true)[handle];
+					let ctdValue = ctdSlider.get(true);
+					let opticsValue = opticsSlider.get(true);
 
 					if(value < pumpValue) {
 						pumpSlider.set(value);
 					}
 
 					if(value < ctdValue) {
-						ctdSlider.set([null, value]);
+						ctdSlider.set(value);
 					}
 					
 					if(value < opticsValue) {
-						opticsSlider.set([null, value]);
+						opticsSlider.set(value);
 					}
 				}
 
@@ -851,29 +844,21 @@ let Sliders = (
 			}
 		)
 
-		let ctdTooltipTextboxes = [
-			createTooltipTextbox(0, ctdContainer), 
-			createTooltipTextbox(1, ctdContainer)
-		];
-
+		let ctdTooltipTextbox = createTooltipTextbox(0, ctdContainer);
 		ctdSlider.on(
 			"update",
 			function(values, handle) {
-				ctdTooltipTextboxes[handle].value = values[handle];
-				handleDependentSlide(depthSlider, values, handle);
+				ctdTooltipTextbox.value = values[0];
+				handleDependentSlide(depthSlider, values[0]);
 			}
 		);
 
-		let opticsTooltipTextboxes = [
-			createTooltipTextbox(0, opticsContainer), 
-			createTooltipTextbox(1, opticsContainer)
-		];
-
+		let opticsTooltipTextbox = createTooltipTextbox(0, opticsContainer);
 		opticsSlider.on(
 			"update",
 			function(values, handle) {
-				opticsTooltipTextboxes[handle].value = values[handle];
-				handleDependentSlide(depthSlider, values, handle);
+				opticsTooltipTextbox.value = values[0];
+				handleDependentSlide(depthSlider, values[0]);
 			}
 		);
 
